@@ -1,0 +1,41 @@
+--- DEPENDÊNCIAS (Frontend e Backend) ---
+
+node_modules
+node_modules
+dist
+dist
+build
+build
+coverage
+
+--- AMBIENTE E SEGURANÇA (Segredos) ---
+
+.env
+.env.local
+.env..local
+.pem
+
+--- LOGS ---
+
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+logs
+.log
+
+--- IDE  EDITOR ---
+
+.vscode
+.idea
+.swp
+.swo
+.DS_Store
+.suo
+.ntvs
+.njsproj
+.sln
+
+--- SISTEMA ---
+
+Thumbs.db
+ehthumbs.db
