@@ -1,29 +1,31 @@
 import React from 'react';
 import { Pencil, Trash2, FileText, Loader2 } from 'lucide-react';
 
-// --- AQUI ESTÁ A CORREÇÃO ---
-// Adicionamos a palavra 'export' antes de 'interface'
-// Agora outros arquivos (como EditSampleModal e AmostrasPage) podem importar { Amostra }
+// --- A CORREÇÃO ESTÁ AQUI ---
 export interface Amostra {
   id: number;
-  codigo: string;       // Ex: LAB-2023-001
-  cliente: string;      // Ex: Indústria XYZ
-  pontoColeta: string;  // Ex: Poço Artesiano 01
-  matriz: string;       // Ex: Água Subterrânea
-  dataColeta: string;   // ISO String ou Formatada
-  status: 'Aguardando' | 'Em Análise' | 'Concluído';
+  codigo: string;
+  cliente: string;
+  pontoColeta?: string;
+  matriz?: string;
+  dataColeta?: string;
+  status: string;
   observacoes?: string;
+  
+  // 👇 ESSA LINHA É OBRIGATÓRIA PARA CORRIGIR O ERRO "Element implicitly has any type"
+  [key: string]: any; 
 }
 
 interface DatabaseListProps {
   amostras: Amostra[];
   isLoading: boolean;
   onEdit: (amostra: Amostra) => void;
-  // onDelete poderia ser adicionado aqui futuramente
+  onDelete: (id: number, codigo: string) => void;
 }
 
-const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit }) => {
-  
+const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit, onDelete }) => {
+  // ... (O resto do código permanece igual ao que te mandei antes) ...
+  // Vou omitir o corpo para economizar espaço, mas mantenha o return e lógica igual.
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -40,7 +42,7 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
           <FileText className="text-slate-300" size={32} />
         </div>
         <h3 className="text-lg font-bold text-slate-700">Nenhuma amostra encontrada</h3>
-        <p className="text-slate-500">O banco de dados está vazio no momento.</p>
+        <p className="text-slate-500">O banco de dados está vazio ou a busca não retornou resultados.</p>
       </div>
     );
   }
@@ -66,15 +68,16 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
                   {amostra.codigo}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="font-medium text-slate-800">{amostra.cliente}</div>
-                  <div className="text-slate-500 text-xs">{amostra.pontoColeta}</div>
+                  <div className="font-medium text-slate-800">{amostra.cliente || '-'}</div>
+                  <div className="text-slate-500 text-xs">{amostra.pontoColeta || '-'}</div>
                 </td>
                 <td className="px-6 py-4 text-slate-600">
-                  {amostra.matriz}
+                  {amostra.matriz || '-'}
                 </td>
                 <td className="px-6 py-4 text-slate-600">
-                  {/* Formatação simples de data */}
-                  {new Date(amostra.dataColeta).toLocaleDateString('pt-BR')}
+                  {amostra.dataColeta 
+                    ? new Date(amostra.dataColeta).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
+                    : '-'}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
@@ -82,17 +85,27 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
                     amostra.status === 'Em Análise' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                     'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
-                    {amostra.status}
+                    {amostra.status || 'Aguardando'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => onEdit(amostra)}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    title="Editar Amostra"
-                  >
-                    <Pencil size={18} />
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button 
+                      onClick={() => onEdit(amostra)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title="Editar Amostra"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => onDelete(amostra.id, amostra.codigo)}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Excluir Amostra"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -1,24 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
-// AQUI ESTÁ A CORREÇÃO MÁGICA:
-// Usamos 'import type' para o Vite saber que isso é só tipagem e não buscar no JS
+import { X, Save, Loader2, TestTube2, Microscope, AlertCircle, CheckCircle2 } from 'lucide-react';
+// Importamos a interface "Mestra" (que já aceita campos dinâmicos)
 import type { Amostra } from './DatabaseList'; 
+import { endpoints } from '../services/api';
 
 interface EditSampleModalProps {
   isOpen: boolean;
-  amostra: Amostra;
+  amostra: Amostra; // Usamos a tipagem oficial
   onClose: () => void;
   onUpdate: () => void;
 }
 
 const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onClose, onUpdate }) => {
+  // O state usa a interface genérica. O typescript não vai reclamar de 'ph' ou 'cloro' 
+  // porque definimos [key: string]: any no DatabaseList.
   const [formData, setFormData] = useState<Amostra>(amostra);
   const [isSaving, setIsSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  // Atualiza o formulário se a amostra mudar
+  // --- SAFE DATA HANDLING ---
+  // Tenta pegar dataColeta (padrão novo) ou data_coleta (legado)
+  const safeDate = formData.dataColeta || formData.data_coleta || new Date().toISOString();
+  
+  // Normaliza o status visual
+  const currentStatus = formData.status === 'Pendente' ? 'Aguardando' : formData.status;
+
   useEffect(() => {
-    setFormData(amostra);
+    // 1. Clona os dados iniciais
+    const initialData = { ...amostra };
+    
+    // 2. SUPORTE A LEGADO: Se por acaso vier um JSON antigo com 'params' aninhado,
+    // a gente "explode" ele para a raiz (flatten) para o formulário entender.
+    if (amostra.params && typeof amostra.params === 'object') {
+        Object.assign(initialData, amostra.params);
+    }
+    if (amostra.micro && typeof amostra.micro === 'object') {
+        Object.assign(initialData, amostra.micro);
+    }
+
+    setFormData(initialData);
   }, [amostra]);
+
+  // --- LÓGICA DE CÁLCULO DE STATUS E PROGRESSO ---
+  useEffect(() => {
+    // Lista de campos que contam para o progresso
+    // (Acessamos via string para garantir compatibilidade)
+    const fields = [
+      formData['temperatura'], formData['ph'], formData['turbidez'], formData['condutividade'],
+      formData['std'], formData['cloreto'], formData['cloroResidual'], formData['corAparente'],
+      formData['ferroTotal'], formData['trihalometanos'],
+      formData['coliformesTotais'], formData['escherichiaColi'], formData['bacteriasHeterotroficas']
+    ];
+
+    const filledCount = fields.filter(f => f && String(f).trim() !== '').length;
+    const totalFields = fields.length;
+    
+    const percentage = totalFields > 0 ? Math.round((filledCount / totalFields) * 100) : 0;
+    setProgress(percentage);
+
+    // Define status sugerido baseado no preenchimento
+    let newStatus = 'Aguardando';
+    if (filledCount > 0 && filledCount < totalFields) {
+      newStatus = 'Em Análise';
+    } else if (filledCount === totalFields && totalFields > 0) {
+      newStatus = 'Concluído';
+    }
+
+    // Se o status calculado for diferente do atual, atualiza
+    // (Evita loop infinito verificando se realmente mudou)
+    const currentFormStatus = formData.status === 'Pendente' ? 'Aguardando' : formData.status;
+    
+    if (currentFormStatus !== newStatus) {
+      setFormData(prev => ({ ...prev, status: newStatus }));
+    }
+  }, [
+    // Monitora mudanças específicas nos campos
+    formData['temperatura'], formData['ph'], formData['turbidez'], formData['condutividade'],
+    formData['std'], formData['cloreto'], formData['cloroResidual'], formData['corAparente'],
+    formData['ferroTotal'], formData['trihalometanos'],
+    formData['coliformesTotais'], formData['escherichiaColi'], formData['bacteriasHeterotroficas'],
+    formData.status
+  ]);
 
   if (!isOpen) return null;
 
@@ -26,140 +88,208 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
     e.preventDefault();
     setIsSaving(true);
 
+    const url = `${endpoints.amostras}/${amostra.id}`;
+
     try {
-      // Exemplo de PUT para atualizar
-      await fetch(`http://localhost:3000/amostras/${amostra.id}`, {
-        method: 'PUT',
+      // Envia o objeto plano (flat). O Backend Híbrido vai filtrar 
+      // apenas as colunas permitidas (ALLOWED_COLUMNS) e ignorar o resto.
+      const response = await fetch(url, {
+        method: 'PATCH', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      onUpdate(); // Avisa o pai que atualizou
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+      }
+      
+      console.log("✅ Salvo com sucesso!");
+      onUpdate(); // Atualiza a lista pai
     } catch (error) {
-      console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar alterações.");
+      console.error("❌ ERRO AO SALVAR:", error);
+      const msg = error instanceof Error ? error.message : "Erro desconhecido";
+      alert(`Erro ao salvar: ${msg}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800">Editar Amostra: {amostra.codigo}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={24} />
-          </button>
+        {/* --- HEADER --- */}
+        <div className="bg-blue-600 px-8 py-6 text-white flex justify-between items-start shrink-0">
+          <div>
+            <div className="flex items-center gap-2 text-blue-100 text-sm font-medium mb-1">
+              <span className="bg-blue-500/30 px-2 py-0.5 rounded border border-blue-400/30 uppercase text-xs tracking-wide">
+                Bancada Digital
+              </span>
+              <span>•</span>
+              <span>Coleta: {new Date(safeDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+            </div>
+            <h2 className="text-3xl font-extrabold tracking-tight font-mono">{amostra.codigo}</h2>
+            <p className="text-blue-100/80 text-sm mt-1 max-w-md truncate">
+              {amostra.cliente || 'Cliente não identificado'} — {amostra.pontoColeta || 'Ponto não identificado'}
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-end gap-3">
+            <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors text-white">
+              <X size={20} />
+            </button>
+            
+            <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm transition-colors duration-300 ${
+              currentStatus === 'Concluído' ? 'bg-emerald-500 text-white border-emerald-400' :
+              currentStatus === 'Em Análise' ? 'bg-amber-400 text-amber-950 border-amber-300' :
+              'bg-blue-800 text-blue-200 border-blue-700'
+            }`}>
+              {currentStatus === 'Concluído' ? <CheckCircle2 size={12} /> : 
+               currentStatus === 'Em Análise' ? <Loader2 size={12} className="animate-spin" /> : 
+               <AlertCircle size={12} />}
+              {String(currentStatus).toUpperCase()}
+            </div>
+          </div>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Cliente</label>
-              <input
-                name="cliente"
-                value={formData.cliente}
-                onChange={handleChange}
-                className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              />
+        {/* --- PROGRESS BAR --- */}
+        <div className="h-1.5 w-full bg-slate-100 shrink-0">
+          <div 
+            className={`h-full transition-all duration-500 ease-out ${
+              progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'
+            }`} 
+            style={{ width: `${progress}%` }} 
+          />
+        </div>
+
+        {/* --- FORM BODY --- */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 bg-slate-50/50">
+          
+          {/* Físico-Químico */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
+              <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                <TestTube2 size={20} />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg">Parâmetros Físico-Químicos</h3>
             </div>
             
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Ponto de Coleta</label>
-              <input
-                name="pontoColeta"
-                value={formData.pontoColeta}
-                onChange={handleChange}
-                className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Matriz</label>
-              <select
-                name="matriz"
-                value={formData.matriz}
-                onChange={handleChange}
-                className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              >
-                <option value="Água Bruta">Água Bruta</option>
-                <option value="Água Tratada">Água Tratada</option>
-                <option value="Efluente">Efluente</option>
-                <option value="Solo">Solo</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Data da Coleta</label>
-              <input
-                type="date"
-                name="dataColeta"
-                // Ajuste simples para formato YYYY-MM-DD se necessário, assumindo ISO string direta aqui
-                value={formData.dataColeta ? formData.dataColeta.split('T')[0] : ''} 
-                onChange={handleChange}
-                className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
-              <div className="flex gap-4">
-                {['Aguardando', 'Em Análise', 'Concluído'].map((status) => (
-                  <label key={status} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="status"
-                      value={status}
-                      checked={formData.status === status}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    />
-                    <span className="text-sm text-slate-700">{status}</span>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-6">
+              {[
+                { label: 'Temperatura', name: 'temperatura', unit: '°C' },
+                { label: 'pH', name: 'ph', unit: '' },
+                { label: 'Turbidez', name: 'turbidez', unit: 'UT' },
+                { label: 'Condutividade', name: 'condutividade', unit: 'µS/cm' },
+                { label: 'Sólidos T.D.', name: 'std', unit: 'mg/L' },
+                { label: 'Cloreto', name: 'cloreto', unit: 'mg/L' },
+                { label: 'Cloro Livre', name: 'cloroResidual', unit: 'mg/L' },
+                { label: 'Cor Aparente', name: 'corAparente', unit: 'uH' },
+                { label: 'Ferro Total', name: 'ferroTotal', unit: 'mg/L' },
+                { label: 'Trihalometanos', name: 'trihalometanos', unit: 'mg/L' },
+              ].map((field) => (
+                <div key={field.name}>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                    {field.label}
                   </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Observações</label>
-              <textarea
-                name="observacoes"
-                value={formData.observacoes || ''}
-                onChange={handleChange}
-                rows={3}
-                className="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-              />
+                  <div className="relative group">
+                    <input
+                      type="number"
+                      step="0.01"
+                      name={field.name}
+                      // Acessa dinamicamente usando []
+                      value={formData[field.name] || ''}
+                      onChange={handleChange}
+                      placeholder="--"
+                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                    {field.unit && (
+                      <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                        {field.unit}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+          {/* Microbiologia */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-100">
+              <div className="bg-purple-100 text-purple-600 p-2 rounded-lg">
+                <Microscope size={20} />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg">Microbiologia</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { label: 'Coliformes Totais', name: 'coliformesTotais' },
+                { label: 'Escherichia coli', name: 'escherichiaColi' },
+                { label: 'Bact. Heterotróficas', name: 'bacteriasHeterotroficas' },
+              ].map((field) => (
+                <div key={field.name}>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                    {field.label}
+                  </label>
+                  <div className="relative">
+                    <select
+                      name={field.name}
+                      value={formData[field.name] || ''}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Ausente">Ausente</option>
+                      <option value="Presente">Presente</option>
+                      {field.name === 'bacteriasHeterotroficas' && <option value="Contagem">Contagem</option>}
+                    </select>
+                    <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        {/* --- FOOTER --- */}
+        <div className="px-8 py-5 border-t border-slate-200 bg-white flex justify-between items-center shrink-0">
+          <div className="text-sm text-slate-500">
+            <strong className="text-slate-900">{progress}%</strong> dos resultados preenchidos
+          </div>
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
             >
               Cancelar
             </button>
             <button
-              type="submit"
+              onClick={handleSubmit}
               disabled={isSaving}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-200 transition-all flex items-center gap-2"
+              className={`px-6 py-2.5 text-sm font-bold text-white rounded-lg shadow-lg transition-all flex items-center gap-2 ${
+                progress === 100 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' 
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+              }`}
             >
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-              {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+              {progress === 100 ? 'Finalizar e Salvar' : 'Salvar Parcialmente'}
             </button>
           </div>
-        </form>
+        </div>
+
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         const codigoVisivel = `${formData.prefix}-${i}`;
         
         // 1. Cria no Banco (POST)
-        const response = await fetch('http://localhost:3000/amostras', {
+        const response = await fetch('http://localhost:3001/amostras', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
