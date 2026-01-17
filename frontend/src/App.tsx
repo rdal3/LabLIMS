@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { BarChart3, TestTubes, Users, LogOut, Key, QrCode } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { API_BASE_URL } from './services/api';
 import Dashboard from './pages/Dashboard';
 import AmostrasPage from './pages/AmostrasPage';
 import LoginPage from './pages/LoginPage';
@@ -34,7 +35,7 @@ function ChangePasswordModal({ show, onClose }: { show: boolean; onClose: () => 
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/auth/change-password', {
+      const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

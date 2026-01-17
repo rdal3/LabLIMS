@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 
 interface User {
     id: number;
@@ -29,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedToken = localStorage.getItem('token');
         if (savedToken) {
             // Validar token fazendo chamada para /auth/me
-            fetch('http://localhost:3001/auth/me', {
+            fetch(`${API_BASE_URL}/auth/me`, {
                 headers: { 'Authorization': `Bearer ${savedToken}` }
             })
                 .then(res => res.json())
@@ -51,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        const response = await fetch('http://localhost:3001/auth/login', {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = () => {
         // Chamar endpoint de logout
         if (token) {
-            fetch('http://localhost:3001/auth/logout', {
+            fetch(`${API_BASE_URL}/auth/logout`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             }).catch(console.error);

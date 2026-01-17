@@ -2,7 +2,11 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'lab-lims-secret-change-in-production-2026';
+// JWT Secret (deve estar definido via variável de ambiente)
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET não definido! Configure a variável de ambiente.');
+}
 
 // Hash de senha
 function hashPassword(password) {

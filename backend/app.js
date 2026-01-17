@@ -1,22 +1,67 @@
+// Carregar variáveis de ambiente
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
+// ===== VALIDAÇÃO DE SEGURANÇA OBRIGATÓRIA =====
+if (!process.env.JWT_SECRET) {
+  console.error('\n⛔ ERRO CRÍTICO: JWT_SECRET não definido!');
+  console.error('Defina a variável de ambiente JWT_SECRET antes de iniciar o servidor.');
+  console.error('Exemplo: set JWT_SECRET=sua-chave-secreta-minimo-32-caracteres\n');
+  process.exit(1);
+}
+
 const app = express();
 
-app.use(cors());
+// ===== MIDDLEWARE DE SEGURANÇA =====
+
+// Headers de segurança (proteção contra XSS, clickjacking, etc.)
+app.use(helmet());
+
+// CORS restritivo
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
+
+// Rate limiting para prevenir ataques de força bruta
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limite de 100 requisições por IP
+  message: { error: 'Muitas requisições, tente novamente mais tarde' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(limiter);
+
+// Rate limiting mais restritivo para login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Apenas 5 tentativas de login por IP
+  message: { error: 'Muitas tentativas de login, tente novamente em 15 minutos' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 app.use(express.json());
 
 // Conexão com Banco
 const dbPath = path.resolve(__dirname, 'lims.db');
 const db = new Database(dbPath);
 
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'lab-lims-secret-change-in-production-2026';
+// JWT Secret (já validado acima)
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Lista de colunas permitidas para edição (Segurança do server.js)
 const ALLOWED_COLUMNS = [
@@ -255,7 +300,7 @@ app.locals.db = db;
 // --- ROTAS DE AUTENTICAÇÃO ---
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, requireRole } = require('./middleware/auth');
 
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
@@ -282,10 +327,10 @@ if (userCount === 0) {
   console.log('');
 }
 
-// --- ROTAS ---
+// --- ROTAS DE AMOSTRAS (PROTEGIDAS) ---
 
 // 1. GET TODAS (Com busca inteligente)
-app.get('/amostras', (req, res) => {
+app.get('/amostras', requireAuth, (req, res) => {
   try {
     const { busca, ordem } = req.query;
     let sql = 'SELECT * FROM amostras';
@@ -346,7 +391,7 @@ app.get('/amostras', (req, res) => {
 });
 
 // 2. GET ÚNICA
-app.get('/amostras/:id', (req, res) => {
+app.get('/amostras/:id', requireAuth, (req, res) => {
   try {
     const row = db.prepare('SELECT * FROM amostras WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ error: 'Amostra não encontrada' });
@@ -376,8 +421,8 @@ app.get('/amostras/:id', (req, res) => {
   }
 });
 
-// 3. POST (Criar Nova)
-app.post('/amostras', (req, res) => {
+// 3. POST (Criar Nova) - Apenas ADMIN, PROFESSOR e TÉCNICO
+app.post('/amostras', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCNICO'), (req, res) => {
   try {
     // Pega dados iniciais incluindo matriz e análises planejadas
     const { codigo, cliente, pontoColeta, matriz, dataColeta, analysesPlanned } = req.body;
@@ -412,8 +457,8 @@ app.post('/amostras', (req, res) => {
   }
 });
 
-// 4. PATCH (Atualizar qualquer campo permitido)
-app.patch('/amostras/:id', (req, res) => {
+// 4. PATCH (Atualizar qualquer campo permitido) - Apenas ADMIN, PROFESSOR e TÉCNICO
+app.patch('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCNICO'), (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
@@ -455,8 +500,8 @@ app.patch('/amostras/:id', (req, res) => {
   }
 });
 
-// 5. DELETE
-app.delete('/amostras/:id', (req, res) => {
+// 5. DELETE - Apenas ADMIN e PROFESSOR
+app.delete('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR'), (req, res) => {
   try {
     const info = db.prepare('DELETE FROM amostras WHERE id = ?').run(req.params.id);
     if (info.changes === 0) return res.status(404).json({ error: 'Amostra não encontrada' });
@@ -466,10 +511,10 @@ app.delete('/amostras/:id', (req, res) => {
   }
 });
 
-// --- DASHBOARD ENDPOINTS ---
+// --- DASHBOARD ENDPOINTS (PROTEGIDOS) ---
 
 // 1. Estatísticas Gerais
-app.get('/dashboard/stats', (req, res) => {
+app.get('/dashboard/stats', requireAuth, (req, res) => {
   try {
     const stats = {
       total: db.prepare('SELECT COUNT(*) as count FROM amostras').get().count,
@@ -484,7 +529,7 @@ app.get('/dashboard/stats', (req, res) => {
 });
 
 // 2. Progresso por Matriz
-app.get('/dashboard/by-matrix', (req, res) => {
+app.get('/dashboard/by-matrix', requireAuth, (req, res) => {
   try {
     const data = db.prepare(`
       SELECT 
@@ -510,7 +555,7 @@ app.get('/dashboard/by-matrix', (req, res) => {
 });
 
 // 3. Timeline (últimos 30 dias)
-app.get('/dashboard/timeline', (req, res) => {
+app.get('/dashboard/timeline', requireAuth, (req, res) => {
   try {
     const data = db.prepare(`
       SELECT 
@@ -528,7 +573,7 @@ app.get('/dashboard/timeline', (req, res) => {
 });
 
 // 4. Top Análises
-app.get('/dashboard/top-analyses', (req, res) => {
+app.get('/dashboard/top-analyses', requireAuth, (req, res) => {
   try {
     // Conta todas as análises planejadas
     const rows = db.prepare('SELECT analysesPlanned FROM amostras WHERE analysesPlanned IS NOT NULL').all();
