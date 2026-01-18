@@ -4,6 +4,8 @@ import LabelTemplate from './LabelTemplate';
 import AnalysisSelector from './AnalysisSelector';
 import { ANALYTICAL_MATRICES } from '@/config/labConfig';
 import { useAuth } from '../contexts/AuthContext';
+import { endpoints } from '../services/api';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface LabelGeneratorProps {
   onSamplesCreated: () => void; // Avisa o pai para atualizar a lista
@@ -11,6 +13,7 @@ interface LabelGeneratorProps {
 
 const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => {
   const { token } = useAuth();
+  const { isMobile } = useIsMobile();
   // Estado do Formulário
   const [formData, setFormData] = useState({
     matrizId: '', // ID da matriz selecionada
@@ -81,7 +84,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         const codigoVisivel = `${selectedMatrix.prefix}${formData.pontoColeta}-${String(i).padStart(2, '0')}`;
 
         // 1. Cria no Banco (POST)
-        const response = await fetch('http://localhost:3001/amostras', {
+        const response = await fetch(`${endpoints.amostras}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -216,10 +219,11 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
   };
 
   return (
-    <div className="grid lg:grid-cols-12 gap-8">
+    <div className={isMobile ? 'space-y-4' : 'grid lg:grid-cols-12 gap-8'}>
 
-      {/* --- ESTILOS DE IMPRESSÃO --- */}
-      <style>{`
+      {/* --- ESTILOS DE IMPRESSAO --- */}
+      {!isMobile && (
+        <style>{`
         @media print {
           @page { 
             size: A4; 
@@ -261,23 +265,24 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
           }
         }
       `}</style>
+      )}
 
-      {/* COLUNA ESQUERDA: FORMULÁRIO */}
-      <div className="lg:col-span-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit space-y-6">
-        <h2 className="font-bold text-lg flex items-center gap-2 text-slate-700">
-          <Plus size={20} className="text-blue-600" /> Nova Sequência
+      {/* FORMULARIO - full width em mobile */}
+      <div className={`bg-white rounded-xl shadow-sm border border-slate-200 ${isMobile ? 'p-3' : 'lg:col-span-4 p-6 h-fit'} ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
+        <h2 className={`font-bold flex items-center gap-2 text-slate-700 ${isMobile ? 'text-sm' : 'text-lg'}`}>
+          <Plus size={isMobile ? 16 : 20} className="text-blue-600" /> Nova Sequência
         </h2>
 
-        <form onSubmit={handleGenerateBatch} className="space-y-4">
+        <form onSubmit={handleGenerateBatch} className={isMobile ? 'space-y-3' : 'space-y-4'}>
           {/* Seletor de Matriz */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Matriz Analítica</label>
+            <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Matriz Analítica</label>
             <div className="relative">
               <select
                 name="matrizId"
                 value={formData.matrizId}
                 onChange={handleInputChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
               >
                 <option value="">Selecione uma matriz...</option>
                 {ANALYTICAL_MATRICES.map(matrix => (
@@ -300,32 +305,32 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
             <button
               type="button"
               onClick={() => setShowAnalysisModal(true)}
-              className="w-full bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2"
+              className={`w-full bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isMobile ? 'py-2 text-xs' : 'py-2.5 rounded-xl border-2'}`}
             >
-              <Edit3 size={16} />
-              Personalizar Análises ({selectedAnalyses.length})
+              <Edit3 size={14} />
+              {isMobile ? `Análises (${selectedAnalyses.length})` : `Personalizar Análises (${selectedAnalyses.length})`}
             </button>
           )}
 
           {/* Cliente */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Cliente</label>
+            <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Cliente</label>
             <input
               type="text"
               name="cliente"
               value={formData.cliente}
               onChange={handleInputChange}
               placeholder="Ex: CDP"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
             />
           </div>
 
           {/* Ponto de Coleta */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Ponto de Coleta</label>
+            <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Ponto de Coleta</label>
             <div className="flex items-center gap-2">
               {selectedMatrix && (
-                <div className="bg-slate-200 text-slate-600 font-mono font-bold px-3 py-3 rounded-xl text-sm">
+                <div className={`bg-slate-200 text-slate-600 font-mono font-bold rounded-lg ${isMobile ? 'px-2 py-2 text-xs' : 'px-3 py-3 text-sm'}`}>
                   {selectedMatrix.prefix}
                 </div>
               )}
@@ -335,7 +340,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
                 value={formData.pontoColeta}
                 onChange={handleInputChange}
                 placeholder="Ex: TPqm"
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                className={`flex-1 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
               />
             </div>
             {selectedMatrix && formData.pontoColeta && (
@@ -346,90 +351,102 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Data de Coleta</label>
+            <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Data de Coleta</label>
             <div className="relative">
               <input type="date" name="date" value={formData.date} onChange={handleInputChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 outline-none focus:ring-2 focus:ring-blue-500" />
-              <Calendar size={18} className="absolute left-3 top-3.5 text-slate-400 pointer-events-none" />
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 outline-none focus:ring-2 focus:ring-blue-500 ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`} />
+              <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Início</label>
-              <input type="number" name="startNum" value={formData.startNum} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3" />
+              <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Início</label>
+              <input type="number" name="startNum" value={formData.startNum} onChange={handleInputChange}
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Fim</label>
-              <input type="number" name="endNum" value={formData.endNum} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3" />
+              <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Fim</label>
+              <input type="number" name="endNum" value={formData.endNum} onChange={handleInputChange}
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`} />
             </div>
           </div>
 
           <button type="submit" disabled={isSubmitting || !selectedMatrix}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed">
-            {isSubmitting ? 'Registrando...' : 'Gerar Lote & Registrar'}
+            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-100 disabled:opacity-50 disabled:cursor-not-allowed ${isMobile ? 'py-3 text-sm' : 'py-3.5'}`}>
+            {isSubmitting ? 'Registrando...' : 'Gerar Lote'}
           </button>
         </form>
       </div>
 
-      {/* COLUNA DIREITA: PREVIEW & TOOLS */}
-      <div className="lg:col-span-8 space-y-6">
+      {/* COLUNA DIREITA: PREVIEW & TOOLS - escondida em mobile */}
+      {!isMobile && (
+        <div className="lg:col-span-8 space-y-6">
 
-        {/* Toolbar */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-6 items-center justify-between">
-          <div className="flex gap-4 items-center">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-400 uppercase flex gap-1"><LayoutGrid size={14} /> Colunas</span>
-              <select value={config.columns} onChange={(e) => setConfig({ ...config, columns: parseInt(e.target.value) })}
-                className="bg-slate-50 border border-slate-200 text-sm font-semibold rounded-lg p-1">
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-400 uppercase flex gap-1"><Type size={14} /> Fonte</span>
-              <select value={config.fontSize} onChange={(e: any) => setConfig({ ...config, fontSize: e.target.value })}
-                className="bg-slate-50 border border-slate-200 text-sm font-semibold rounded-lg p-1">
-                <option value="small">Pequena</option>
-                <option value="normal">Média</option>
-                <option value="large">Grande</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2 mt-4">
-              <input type="checkbox" checked={config.showBorder} onChange={(e) => setConfig({ ...config, showBorder: e.target.checked })} />
-              <span className="text-sm font-bold text-slate-600">Bordas</span>
-            </div>
-          </div>
-
-          <button onClick={handlePrint} disabled={generatedLabels.length === 0}
-            className="bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-30">
-            <Printer size={18} /> Imprimir
-          </button>
-        </div>
-
-        {/* Área de Preview (e Impressão Invisível) */}
-        <div id="print-area" className="bg-slate-200 p-8 rounded-2xl overflow-auto flex justify-center shadow-inner min-h-[500px]">
-          <div className={`bg-white shadow-2xl p-8 min-h-[297mm] w-[210mm] grid content-start gap-4 ${getGridClass()} print-grid`}>
-            {generatedLabels.length > 0 ? generatedLabels.map((lbl, idx) => (
-              <LabelTemplate
-                key={idx}
-                data={lbl}
-                showBorder={config.showBorder}
-                fontSize={config.fontSize}
-                isPrintMode={true} // Força o modo de impressão para alta qualidade
-              />
-            )) : (
-              <div className="col-span-full h-[300px] flex items-center justify-center text-slate-400 italic">
-                Preencha o formulário e clique em gerar para ver as etiquetas.
+          {/* Toolbar */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-6 items-center justify-between">
+            <div className="flex gap-4 items-center">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-400 uppercase flex gap-1"><LayoutGrid size={14} /> Colunas</span>
+                <select value={config.columns} onChange={(e) => setConfig({ ...config, columns: parseInt(e.target.value) })}
+                  className="bg-slate-50 border border-slate-200 text-sm font-semibold rounded-lg p-1">
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </select>
               </div>
-            )}
-          </div>
-        </div>
 
-      </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-400 uppercase flex gap-1"><Type size={14} /> Fonte</span>
+                <select value={config.fontSize} onChange={(e: any) => setConfig({ ...config, fontSize: e.target.value })}
+                  className="bg-slate-50 border border-slate-200 text-sm font-semibold rounded-lg p-1">
+                  <option value="small">Pequena</option>
+                  <option value="normal">Média</option>
+                  <option value="large">Grande</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4">
+                <input type="checkbox" checked={config.showBorder} onChange={(e) => setConfig({ ...config, showBorder: e.target.checked })} />
+                <span className="text-sm font-bold text-slate-600">Bordas</span>
+              </div>
+            </div>
+
+            <button onClick={handlePrint} disabled={generatedLabels.length === 0}
+              className="bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-30">
+              <Printer size={18} /> Imprimir
+            </button>
+          </div>
+
+          {/* Área de Preview (e Impressão Invisível) */}
+          <div id="print-area" className="bg-slate-200 p-8 rounded-2xl overflow-auto flex justify-center shadow-inner min-h-[500px]">
+            <div className={`bg-white shadow-2xl p-8 min-h-[297mm] w-[210mm] grid content-start gap-4 ${getGridClass()} print-grid`}>
+              {generatedLabels.length > 0 ? generatedLabels.map((lbl, idx) => (
+                <LabelTemplate
+                  key={idx}
+                  data={lbl}
+                  showBorder={config.showBorder}
+                  fontSize={config.fontSize}
+                  isPrintMode={true}
+                />
+              )) : (
+                <div className="col-span-full h-[300px] flex items-center justify-center text-slate-400 italic">
+                  Preencha o formulário e clique em gerar para ver as etiquetas.
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* Mobile: Mensagem de sucesso após gerar */}
+      {isMobile && generatedLabels.length > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+          <p className="text-emerald-700 font-bold">✅ {generatedLabels.length} etiqueta(s) gerada(s)!</p>
+          <p className="text-emerald-600 text-sm">Para imprimir, acesse pelo computador.</p>
+        </div>
+      )}
 
       {/* Modal de Seleção de Análises */}
       <AnalysisSelector

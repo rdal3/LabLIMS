@@ -1,6 +1,17 @@
 // Configuração centralizada dos endpoints
-// Usar variável de ambiente em produção
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Detecta automaticamente o IP para funcionar no celular
+const getApiUrl = () => {
+  // Se tiver variável de ambiente, usa ela
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // Usa o mesmo host que o frontend está rodando (funciona no celular)
+  const host = window.location.hostname;
+  return `http://${host}:3001`;
+};
+
+export const API_BASE_URL = getApiUrl();
 
 export const endpoints = {
   amostras: `${API_BASE_URL}/amostras`,

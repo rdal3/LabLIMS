@@ -26,9 +26,29 @@ const app = express();
 // Headers de segurança (proteção contra XSS, clickjacking, etc.)
 app.use(helmet());
 
-// CORS restritivo
+// CORS configurável para desenvolvimento (aceita localhost e IP local)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  process.env.CORS_ORIGIN
+].filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Permite requisições sem origin (como apps mobile ou Postman)
+    if (!origin) return callback(null, true);
+
+    // Permite qualquer IP na rede local (192.168.x.x ou 10.x.x.x)
+    if (origin.match(/^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|localhost|127\.0\.0\.1)/)) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('Bloqueado pelo CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -604,6 +624,7 @@ app.get('/dashboard/top-analyses', requireAuth, (req, res) => {
 
 // --- INICIA O SERVIDOR ---
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`✅ Backend (Híbrido) rodando em http://localhost:${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0'; // Permite acesso de outros dispositivos na rede
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Backend (Híbrido) rodando em http://${HOST}:${PORT}`);
 });

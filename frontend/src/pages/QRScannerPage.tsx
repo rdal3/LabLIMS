@@ -1,211 +1,231 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useNavigate } from 'react-router-dom';
-import { Camera, X, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { CheckCircle, AlertCircle, ArrowRight, X } from 'lucide-react';
+import { API_BASE_URL } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const QRScannerPage: React.FC = () => {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const [scanning, setScanning] = useState(false);
-    const [lastScanned, setLastScanned] = useState<string>('');
-    const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'loading'>('idle');
-    const [message, setMessage] = useState('');
-    const [cameraReady, setCameraReady] = useState(false);
+    const mountedRef = useRef(true);
+    const initRef = useRef(false);
+
+    // Status simplificado
+    const [status, setStatus] = useState<'init' | 'scanning' | 'success' | 'error' | 'loading'>('init');
+    const [foundSample, setFoundSample] = useState<{ id: number; codigo: string } | null>(null);
+    const [errorMsg, setErrorMsg] = useState('');
+    const processingRef = useRef(false);
+
+    const processQRCode = async (decodedText: string) => {
+        if (processingRef.current || !mountedRef.current) return;
+        processingRef.current = true;
+
+        // Não muda layout imediatamente para não piscar
+        setStatus('loading');
+
+        try {
+            // Logica robusta para extrair ID
+            let sampleId = null;
+            if (decodedText.includes('_')) {
+                const parts = decodedText.split('_');
+                const lastPart = parts[parts.length - 1];
+                if (!isNaN(parseInt(lastPart))) sampleId = parseInt(lastPart);
+            }
+
+            const url = sampleId
+                ? `${API_BASE_URL}/amostras/${sampleId}`
+                : `${API_BASE_URL}/amostras?busca=${encodeURIComponent(decodedText)}`;
+
+            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!res.ok) throw new Error('Erro');
+
+            const data = await res.json();
+            const sample = Array.isArray(data) ? data[0] : data;
+
+            if (sample?.id && mountedRef.current) {
+                // PRIMEIRO: Para o scanner
+                try {
+                    if (scannerRef.current?.isScanning) {
+                        await scannerRef.current.stop();
+                    }
+                } catch { }
+
+                // DEPOIS: Atualiza estado (vai esconder a câmera)
+                setFoundSample({ id: sample.id, codigo: sample.codigo });
+                setStatus('success');
+            } else {
+                throw new Error('Não encontrada');
+            }
+        } catch (e: any) {
+            if (mountedRef.current) {
+                setErrorMsg(e.message || 'Erro');
+                setStatus('error');
+                // Retoma
+                setTimeout(() => {
+                    if (mountedRef.current) {
+                        processingRef.current = false;
+                        setStatus('scanning');
+                    }
+                }, 2000);
+            }
+        }
+    };
 
     useEffect(() => {
-        const scanner = new Html5Qrcode('qr-reader');
-        scannerRef.current = scanner;
+        mountedRef.current = true;
+        if (initRef.current) return;
+        initRef.current = true;
 
-        const startScanner = async () => {
+        const containerId = 'qr-scanner-container';
+
+        const cleanup = async () => {
             try {
-                setStatus('loading');
-                setMessage('Iniciando câmera...');
+                if (scannerRef.current) {
+                    if (scannerRef.current.isScanning) {
+                        await scannerRef.current.stop();
+                    }
+                    scannerRef.current.clear(); // Limpa UI
+                    scannerRef.current = null;
+                }
+            } catch { }
+        };
 
-                const config = {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
-                };
+        const start = async () => {
+            await cleanup();
+            if (!mountedRef.current) return;
+
+            try {
+                const scanner = new Html5Qrcode(containerId);
+                scannerRef.current = scanner;
 
                 await scanner.start(
                     { facingMode: 'environment' },
-                    config,
-                    handleScan,
-                    handleError
+                    {
+                        fps: 15,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1
+                    },
+                    processQRCode,
+                    () => { }
                 );
 
-                setCameraReady(true);
-                setScanning(true);
-                setStatus('idle');
-                setMessage('');
+                if (mountedRef.current) {
+                    setStatus('scanning');
+                }
             } catch (err: any) {
-                console.error('Erro ao iniciar scanner:', err);
-                setStatus('error');
-                setMessage('Erro ao acessar câmera. Verifique as permissões no navegador.');
+                if (mountedRef.current) {
+                    setErrorMsg('Permita acesso à câmera');
+                    setStatus('error');
+                }
             }
         };
 
-        startScanner();
+        // Pequeno delay para garantir renderização do DOM
+        setTimeout(start, 100);
 
         return () => {
-            if (scanner.isScanning) {
-                scanner.stop().catch(console.error);
-            }
+            mountedRef.current = false;
+            cleanup();
         };
     }, []);
 
-    const handleScan = async (decodedText: string) => {
-        if (!scanning || decodedText === lastScanned) return;
-
-        setLastScanned(decodedText);
-        setScanning(false);
-
-        try {
-            setStatus('loading');
-            setMessage('Buscando amostra...');
-
-            // Buscar amostra pelo código ou UUID
-            const response = await fetch(`http://localhost:3001/amostras?busca=${encodeURIComponent(decodedText)}`);
-            const samples = await response.json();
-
-            if (samples && samples.length > 0) {
-                const sample = samples[0];
-                setStatus('success');
-                setMessage(`Amostra encontrada: ${sample.codigo}`);
-
-                // Aguarda um pouco antes de navegar
-                setTimeout(() => {
-                    // Para o scanner antes de navegar
-                    if (scannerRef.current?.isScanning) {
-                        scannerRef.current.stop().catch(console.error);
-                    }
-                    navigate('/amostras', { state: { selectedSampleId: sample.id, openEditor: true } });
-                }, 1500);
-            } else {
-                setStatus('error');
-                setMessage('Amostra não encontrada no sistema');
-                setTimeout(() => {
-                    setStatus('idle');
-                    setScanning(true);
-                    setLastScanned('');
-                }, 2000);
-            }
-        } catch (error) {
-            console.error('Erro ao buscar amostra:', error);
-            setStatus('error');
-            setMessage('Erro ao buscar amostra');
-            setTimeout(() => {
-                setStatus('idle');
-                setScanning(true);
-                setLastScanned('');
-            }, 2000);
+    const goToSample = () => {
+        if (foundSample) {
+            navigate('/amostras', { state: { selectedSampleId: foundSample.id, openEditor: true } });
         }
-    };
-
-    const handleError = (errorMessage: string) => {
-        // Ignora erros de "No QR code found" que são normais
-        if (errorMessage.includes('NotFoundException')) {
-            return;
-        }
-        console.error('Scanner error:', errorMessage);
-    };
-
-    const handleClose = () => {
-        if (scannerRef.current?.isScanning) {
-            scannerRef.current.stop().catch(console.error);
-        }
-        navigate('/amostras');
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 p-4">
+        <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: '#0f172a',
+            display: 'flex', flexDirection: 'column',
+            paddingTop: 'max(env(safe-area-inset-top), 56px)',
+            paddingBottom: 'env(safe-area-inset-bottom)'
+        }}>
             {/* Header */}
-            <div className="max-w-2xl mx-auto mb-6">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                        <Camera size={36} className="text-blue-400" />
-                        Scanner QR Code
-                    </h1>
-                    <button
-                        onClick={handleClose}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
-                    >
-                        <X size={24} />
-                    </button>
-                </div>
-                <p className="text-slate-400 mt-2">
-                    Aponte a câmera para o QR Code da etiqueta
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: '#1e293b' }}>
+                <span style={{ color: 'white', fontWeight: 'bold' }}>📷 Scanner</span>
+                <button onClick={() => navigate('/amostras')} style={{ background: '#334155', border: 'none', borderRadius: '4px', padding: '6px' }}>
+                    <X size={18} color="white" />
+                </button>
             </div>
 
-            {/* Scanner Container */}
-            <div className="max-w-2xl mx-auto">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-blue-500 bg-black">
-                    <div id="qr-reader" className="w-full"></div>
+            {/* Main Content */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', position: 'relative' }}>
 
-                    {/* Overlay quando está carregando */}
-                    {status === 'loading' && (
-                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                            <div className="text-center text-white">
-                                <Loader size={48} className="animate-spin mx-auto mb-4" />
-                                <p className="font-bold">{message}</p>
+                {/* 1. CAMERA LAYOUT (Só mostra se NÃO for sucesso) */}
+                {status !== 'success' && (
+                    <>
+                        <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                            <div
+                                id="qr-scanner-container"
+                                style={{
+                                    width: '280px', height: '280px',
+                                    backgroundColor: 'black', borderRadius: '16px', overflow: 'hidden', border: '2px solid #3b82f6', position: 'relative'
+                                }}
+                            >
+                                {/* Loading Overlay inside camera */}
+                                {(status === 'loading' || status === 'init') && (
+                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    )}
 
-                    {/* Overlay de guia quando pronto */}
-                    {cameraReady && scanning && status === 'idle' && (
-                        <div className="absolute bottom-20 left-0 right-0 text-center pointer-events-none">
-                            <p className="text-white text-lg font-bold bg-black/60 px-4 py-2 rounded-full inline-block">
-                                Posicione o QR Code dentro do quadrado
-                            </p>
-                        </div>
-                    )}
-                </div>
+                        {/* Status Message */}
+                        {status === 'scanning' && <p style={{ color: '#94a3b8' }}>Aponte para o QR Code</p>}
 
-                {/* Status Messages */}
-                {status === 'success' && (
-                    <div className="mt-6 bg-emerald-600 text-white p-4 rounded-xl flex items-center gap-3 animate-pulse">
-                        <CheckCircle size={24} />
-                        <div>
-                            <p className="font-bold">✅ Sucesso!</p>
-                            <p className="text-sm">{message}</p>
-                        </div>
-                    </div>
+                        {status === 'error' && (
+                            <div style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '8px', padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertCircle size={20} />
+                                <span>{errorMsg}</span>
+                            </div>
+                        )}
+                    </>
                 )}
 
-                {status === 'error' && (
-                    <div className="mt-6 bg-red-600 text-white p-4 rounded-xl flex items-center gap-3">
-                        <AlertCircle size={24} />
-                        <div>
-                            <p className="font-bold">❌ Erro</p>
-                            <p className="text-sm">{message}</p>
+                {/* 2. SUCCESS LAYOUT (Substitui a câmera) */}
+                {status === 'success' && foundSample && (
+                    <div style={{
+                        width: '100%', maxWidth: '300px',
+                        backgroundColor: '#10b981',
+                        borderRadius: '24px',
+                        padding: '32px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                    }}>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '16px', borderRadius: '50%', marginBottom: '16px' }}>
+                            <CheckCircle size={48} color="white" />
                         </div>
-                    </div>
-                )}
+                        <h2 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Encontrada!</h2>
+                        <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '18px', marginBottom: '24px', fontFamily: 'monospace' }}>{foundSample.codigo}</p>
 
-                {/* Instructions */}
-                <div className="mt-6 bg-slate-800 p-6 rounded-xl text-slate-300">
-                    <h3 className="font-bold text-white mb-3">💡 Dicas para melhor leitura:</h3>
-                    <ul className="space-y-2 text-sm">
-                        <li>• Mantenha a câmera estável</li>
-                        <li>• Garanta boa iluminação</li>
-                        <li>• Posicione o QR Code dentro do quadrado verde</li>
-                        <li>• Evite reflexos na etiqueta</li>
-                        <li>• Mantenha distância de ~20-30cm</li>
-                    </ul>
-                </div>
-
-                {/* Permissions Help */}
-                {status === 'error' && message.includes('câmera') && (
-                    <div className="mt-4 bg-amber-900 border-2 border-amber-600 p-4 rounded-xl text-amber-100 text-sm">
-                        <p className="font-bold mb-2">🔒 Permissão de Câmera Necessária</p>
-                        <p>Para usar o scanner, você precisa permitir o acesso à câmera:</p>
-                        <ol className="mt-2 ml-4 space-y-1 list-decimal">
-                            <li>Clique no ícone de cadeado/câmera na barra de endereço</li>
-                            <li>Selecione "Permitir" para câmera</li>
-                            <li>Recarregue a página</li>
-                        </ol>
+                        <button
+                            onClick={goToSample}
+                            style={{
+                                width: '100%',
+                                backgroundColor: 'white',
+                                color: '#047857',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '16px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            }}
+                        >
+                            Abrir Amostra <ArrowRight size={20} />
+                        </button>
                     </div>
                 )}
             </div>

@@ -3,6 +3,7 @@ import { Activity, TrendingUp, CheckCircle, Clock, BarChart3, ArrowRight, Calend
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import { endpoints } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardStats {
     total: number;
@@ -30,6 +31,7 @@ interface RecentSample {
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [matrixData, setMatrixData] = useState<MatrixData[]>([]);
     const [recentSamples, setRecentSamples] = useState<RecentSample[]>([]);
@@ -46,19 +48,25 @@ const Dashboard: React.FC = () => {
         setIsLoading(true);
         try {
             // Fetch stats
-            const statsRes = await fetch(`${endpoints.amostras.replace('/amostras', '')}/dashboard/stats`);
+            const statsRes = await fetch(`${endpoints.amostras.replace('/amostras', '')}/dashboard/stats`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const statsData = await statsRes.json();
             setStats(statsData);
 
             // Fetch matrix data
-            const matrixRes = await fetch(`${endpoints.amostras.replace('/amostras', '')}/dashboard/by-matrix`);
+            const matrixRes = await fetch(`${endpoints.amostras.replace('/amostras', '')}/dashboard/by-matrix`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const matrixDataRes = await matrixRes.json();
             setMatrixData(matrixDataRes);
 
             // Fetch recent samples (últimas 5)
-            const samplesRes = await fetch(`${endpoints.amostras}?ordem=DESC&limite=5`);
+            const samplesRes = await fetch(`${endpoints.amostras}?ordem=DESC&limite=5`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const samplesData = await samplesRes.json();
-            setRecentSamples(samplesData.data || []);
+            setRecentSamples(samplesData.slice ? samplesData.slice(0, 5) : []);
 
         } catch (error) {
             console.error('Erro ao buscar dados do dashboard:', error);
@@ -226,10 +234,10 @@ const Dashboard: React.FC = () => {
                                         <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                                             <div
                                                 className={`h-full transition-all duration-500 ${matrix.percentComplete === 100
-                                                        ? 'bg-gradient-to-r from-emerald-400 to-emerald-600'
-                                                        : matrix.percentComplete > 50
-                                                            ? 'bg-gradient-to-r from-blue-400 to-blue-600'
-                                                            : 'bg-gradient-to-r from-amber-400 to-amber-600'
+                                                    ? 'bg-gradient-to-r from-emerald-400 to-emerald-600'
+                                                    : matrix.percentComplete > 50
+                                                        ? 'bg-gradient-to-r from-blue-400 to-blue-600'
+                                                        : 'bg-gradient-to-r from-amber-400 to-amber-600'
                                                     }`}
                                                 style={{ width: `${matrix.percentComplete}%` }}
                                             />

@@ -1210,6 +1210,6 @@ Este Lab-LIMS garante que **sempre haverá uma resposta**.
 
 ---
 
-**Documento técnico elaborado por:** [Seu nome]  
+**Documento técnico elaborado por:** Raphael David Alvarenga Lopes  
 **Revisão:** v1.0  
-**Última atualização:** 2026-01-05
+**Última atualização:** 2026-01-17

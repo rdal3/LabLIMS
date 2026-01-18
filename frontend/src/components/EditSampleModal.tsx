@@ -4,6 +4,7 @@ import type { Amostra } from './DatabaseList';
 import { endpoints } from '../services/api';
 import { LAB_PARAMS } from '@/config/labConfig';
 import AnalysisSelector from './AnalysisSelector';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EditSampleModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface EditSampleModalProps {
 }
 
 const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onClose, onUpdate }) => {
+  const { token } = useAuth();
   const [formData, setFormData] = useState<Amostra>(amostra);
   const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -103,7 +105,10 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
       // Envia o objeto preparado
       const response = await fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
       });
 

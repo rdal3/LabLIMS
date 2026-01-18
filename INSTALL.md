@@ -378,4 +378,4 @@ node app.js  # Recria automaticamente
 ---
 
 **Versão:** 1.0.0  
-**Última atualização:** 2026-01-05
+**Última atualização:** 2026-01-17

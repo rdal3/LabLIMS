@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BarChart3, TestTubes, Users, LogOut, Key, QrCode } from 'lucide-react';
+import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { API_BASE_URL } from './services/api';
+import { useIsMobile } from './hooks/useIsMobile';
 import Dashboard from './pages/Dashboard';
 import AmostrasPage from './pages/AmostrasPage';
 import LoginPage from './pages/LoginPage';
@@ -150,10 +151,108 @@ function ChangePasswordModal({ show, onClose }: { show: boolean; onClose: () => 
 function Navigation() {
   const location = useLocation();
   const { user, logout, hasRole } = useAuth();
+  const { isMobile } = useIsMobile();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Componente de Link para navegação
+  const NavLink = ({ to, icon: Icon, label, showLabel = true }: { to: string; icon: any; label: string; showLabel?: boolean }) => (
+    <Link
+      to={to}
+      onClick={() => setShowMobileMenu(false)}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${isActive(to)
+        ? 'bg-blue-600 text-white'
+        : 'text-slate-600 hover:bg-slate-100'
+        } ${isMobile ? 'flex-col text-xs gap-1' : ''}`}
+    >
+      <Icon size={isMobile ? 24 : 20} />
+      {showLabel && <span className={isMobile ? 'text-[10px]' : ''}>{label}</span>}
+    </Link>
+  );
+
+  // Mobile: Bottom Tab Bar
+  if (isMobile) {
+    return (
+      <>
+        {/* Header simplificado para mobile */}
+        <header className="bg-white border-b border-slate-200 shadow-sm fixed top-0 left-0 right-0 z-40">
+          <div className="flex items-center justify-between px-4 h-14">
+            <img src={logoImg} alt="LabÁgua" className="h-10 w-auto" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-700 max-w-[120px] truncate">
+                {user?.full_name?.split(' ')[0]}
+              </span>
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+              >
+                <Menu size={24} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Menu dropdown mobile */}
+        {showMobileMenu && (
+          <div className="fixed top-14 right-0 bg-white shadow-lg rounded-bl-xl border border-slate-200 z-50 min-w-[200px]">
+            <div className="p-4 border-b border-slate-100">
+              <p className="font-bold text-slate-900">{user?.full_name}</p>
+              <p className="text-xs text-slate-500">{user?.role}</p>
+            </div>
+            <div className="p-2">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(true);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-lg text-left"
+              >
+                <Key size={20} />
+                Alterar Senha
+              </button>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg text-left"
+              >
+                <LogOut size={20} />
+                Sair
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Backdrop para fechar menu */}
+        {showMobileMenu && (
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setShowMobileMenu(false)}
+          />
+        )}
+
+        {/* Bottom Tab Bar */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-40 safe-area-bottom">
+          <div className="flex justify-around items-center py-2 px-2">
+            <NavLink to="/" icon={BarChart3} label="Início" />
+            <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
+            <NavLink to="/scanner" icon={QrCode} label="Scanner" />
+            {hasRole('ADMIN', 'PROFESSOR') && (
+              <NavLink to="/users" icon={Users} label="Usuários" />
+            )}
+          </div>
+        </nav>
+
+        {/* Espaçadores para conteúdo não ficar sob header/nav */}
+        <div className="h-14" /> {/* Espaço para header */}
+
+        <ChangePasswordModal show={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
+      </>
+    );
+  }
+
+  // Desktop: Navegação tradicional
   return (
     <nav className="bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
@@ -163,50 +262,11 @@ function Navigation() {
           </div>
 
           <div className="flex gap-2 items-center">
-            <Link
-              to="/"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isActive('/')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <BarChart3 size={20} />
-              Dashboard
-            </Link>
-
-            <Link
-              to="/amostras"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isActive('/amostras')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <TestTubes size={20} />
-              Amostras
-            </Link>
-
-            <Link
-              to="/scanner"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isActive('/scanner')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <QrCode size={20} />
-              Scanner
-            </Link>
-
+            <NavLink to="/" icon={BarChart3} label="Dashboard" />
+            <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
+            <NavLink to="/scanner" icon={QrCode} label="Scanner" />
             {hasRole('ADMIN', 'PROFESSOR') && (
-              <Link
-                to="/users"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isActive('/users')
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-              >
-                <Users size={20} />
-                Usuários
-              </Link>
+              <NavLink to="/users" icon={Users} label="Usuários" />
             )}
 
             <div className="ml-4 pl-4 border-l border-slate-200 flex items-center gap-3">
@@ -261,6 +321,7 @@ function ProtectedRoute({ children, requiredRoles }: { children: React.ReactNode
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+  const { isMobile } = useIsMobile();
 
   if (loading) {
     return (
@@ -275,7 +336,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className={`min-h-screen bg-slate-50 ${isMobile ? 'pb-20' : ''}`}>
       <Navigation />
       <Routes>
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

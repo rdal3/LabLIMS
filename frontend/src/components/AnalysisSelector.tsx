@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Check, Filter } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { LAB_PARAMS, type AnalyticalMatrix } from '@/config/labConfig';
 
 interface AnalysisSelectorProps {
@@ -18,6 +19,7 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
     onSave
 }) => {
     const [selected, setSelected] = useState<string[]>(currentAnalyses);
+    const { isMobile } = useIsMobile();
 
     if (!isOpen) return null;
 
@@ -57,15 +59,15 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? 'p-2' : 'p-4'}`}>
+            <div className={`bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col ${isMobile ? 'h-[90vh]' : 'max-h-[85vh]'}`}>
 
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white flex justify-between items-center shrink-0">
+                <div className={`bg-gradient-to-r from-blue-600 to-blue-700 text-white flex justify-between items-center shrink-0 ${isMobile ? 'px-4 py-3' : 'px-6 py-5'}`}>
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <Filter size={20} />
-                            <h2 className="text-xl font-bold">Selecionar Análises</h2>
+                            <h2 className={`font-bold ${isMobile ? 'text-lg' : 'text-xl'}`}>Selecionar Análises</h2>
                         </div>
                         {selectedMatrix && (
                             <p className="text-blue-100 text-sm">
@@ -82,7 +84,7 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className={`flex-1 overflow-y-auto space-y-4 ${isMobile ? 'p-3' : 'p-6 space-y-6'}`}>
                     {selectedMatrix && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <p className="text-sm text-blue-900">
@@ -101,7 +103,7 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
                         const label = categoryLabels[category as keyof typeof categoryLabels];
 
                         return (
-                            <div key={category} className="bg-slate-50 rounded-lg p-5">
+                            <div key={category} className={`bg-slate-50 rounded-lg ${isMobile ? 'p-3' : 'p-5'}`}>
                                 <h3 className={`text-${color}-700 font-bold text-sm uppercase tracking-wide mb-4 flex items-center gap-2`}>
                                     <div className={`w-2 h-2 rounded-full bg-${color}-500`}></div>
                                     {label}
@@ -115,9 +117,9 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
                                         return (
                                             <label
                                                 key={param.id}
-                                                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${isSelected
-                                                        ? `bg-${color}-100 border-2 border-${color}-400`
-                                                        : 'bg-white border-2 border-slate-200 hover:border-slate-300'
+                                                className={`flex items-center gap-3 rounded-lg cursor-pointer transition-all ${isMobile ? 'p-2' : 'p-3'} ${isSelected
+                                                    ? `bg-${color}-100 border-2 border-${color}-400`
+                                                    : 'bg-white border-2 border-slate-200 hover:border-slate-300'
                                                     }`}
                                             >
                                                 <input
@@ -152,7 +154,7 @@ const AnalysisSelector: React.FC<AnalysisSelectorProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                <div className={`border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0 ${isMobile ? 'px-4 py-3' : 'px-6 py-4'}`}>
                     <div className="text-sm text-slate-600">
                         <strong className="text-slate-900">{selected.length}</strong> análises selecionadas
                     </div>

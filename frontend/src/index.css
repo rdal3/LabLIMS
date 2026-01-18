@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+/* === MOBILE STYLES === */
+
+/* Safe area insets para iPhones com notch */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Prevent pull-to-refresh em mobile */
+html {
+  overscroll-behavior-y: none;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Remove delay de tap em mobile */
+* {
+  touch-action: manipulation;
+}
+
+/* Melhor scrolling em mobile */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+/* Padding para evitar conteúdo sob nav/header mobile */
+.mobile-content-padding {
+  padding-top: 3.5rem; /* header height */
+  padding-bottom: 4.5rem; /* bottom nav height */
+}
+
+/* Full height accounting for mobile nav */
+.mobile-full-height {
+  min-height: calc(100vh - 3.5rem - 4.5rem);
+}
+
+/* Fix modal em mobile */
+@media (max-width: 768px) {
+  .modal-mobile {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Cards mais compactos em mobile */
+  .card-compact {
+    padding: 0.75rem;
+  }
+  
+  /* Fonte menor para tabelas em mobile */
+  .table-mobile {
+    font-size: 0.75rem;
+  }
+}
