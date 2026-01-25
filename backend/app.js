@@ -56,9 +56,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Rate limiting para prevenir ataques de força bruta
+// NOTA: Limites aumentados para desenvolvimento com múltiplos dispositivos
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Limite de 100 requisições por IP
+  max: 1000, // Limite de 1000 requisições por IP (desenvolvimento)
   message: { error: 'Muitas requisições, tente novamente mais tarde' },
   standardHeaders: true,
   legacyHeaders: false
@@ -68,7 +69,7 @@ app.use(limiter);
 // Rate limiting mais restritivo para login
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // Apenas 5 tentativas de login por IP
+  max: 20, // 20 tentativas de login por IP (desenvolvimento)
   message: { error: 'Muitas tentativas de login, tente novamente em 15 minutos' },
   standardHeaders: true,
   legacyHeaders: false
@@ -79,6 +80,10 @@ app.use(express.json());
 // Conexão com Banco
 const dbPath = path.resolve(__dirname, 'lims.db');
 const db = new Database(dbPath);
+
+// Habilita WAL mode para melhor concorrência (múltiplos leitores simultâneos)
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000'); // Espera até 5s se banco estiver ocupado
 
 // JWT Secret (já validado acima)
 const JWT_SECRET = process.env.JWT_SECRET;

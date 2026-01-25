@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertCircle, ArrowRight, X } from 'lucide-react';
@@ -9,24 +9,46 @@ const QRScannerPage: React.FC = () => {
     const navigate = useNavigate();
     const { token } = useAuth();
     const scannerRef = useRef<Html5Qrcode | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const mountedRef = useRef(true);
     const initRef = useRef(false);
+    const processingRef = useRef(false);
 
-    // Status simplificado
     const [status, setStatus] = useState<'init' | 'scanning' | 'success' | 'error' | 'loading'>('init');
     const [foundSample, setFoundSample] = useState<{ id: number; codigo: string } | null>(null);
     const [errorMsg, setErrorMsg] = useState('');
-    const processingRef = useRef(false);
 
-    const processQRCode = async (decodedText: string) => {
+    // Cleanup function that safely stops scanner and clears container
+    const cleanupScanner = useCallback(async () => {
+        try {
+            if (scannerRef.current) {
+                if (scannerRef.current.isScanning) {
+                    await scannerRef.current.stop();
+                }
+                try {
+                    scannerRef.current.clear();
+                } catch {
+                    // clear() can throw if already cleared
+                }
+                scannerRef.current = null;
+            }
+        } catch {
+            // Ignore cleanup errors
+        }
+
+        // Manually clear the container to prevent React DOM conflicts
+        if (containerRef.current) {
+            containerRef.current.innerHTML = '';
+        }
+    }, []);
+
+    const processQRCode = useCallback(async (decodedText: string) => {
         if (processingRef.current || !mountedRef.current) return;
         processingRef.current = true;
 
-        // Não muda layout imediatamente para não piscar
         setStatus('loading');
 
         try {
-            // Logica robusta para extrair ID
             let sampleId = null;
             if (decodedText.includes('_')) {
                 const parts = decodedText.split('_');
@@ -45,24 +67,20 @@ const QRScannerPage: React.FC = () => {
             const sample = Array.isArray(data) ? data[0] : data;
 
             if (sample?.id && mountedRef.current) {
-                // PRIMEIRO: Para o scanner
-                try {
-                    if (scannerRef.current?.isScanning) {
-                        await scannerRef.current.stop();
-                    }
-                } catch { }
+                // FIRST: Stop and cleanup scanner BEFORE changing React state
+                await cleanupScanner();
 
-                // DEPOIS: Atualiza estado (vai esconder a câmera)
+                // THEN: Update state (safe now, container is empty)
                 setFoundSample({ id: sample.id, codigo: sample.codigo });
                 setStatus('success');
             } else {
                 throw new Error('Não encontrada');
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (mountedRef.current) {
-                setErrorMsg(e.message || 'Erro');
+                const errorMessage = e instanceof Error ? e.message : 'Erro';
+                setErrorMsg(errorMessage);
                 setStatus('error');
-                // Retoma
                 setTimeout(() => {
                     if (mountedRef.current) {
                         processingRef.current = false;
@@ -71,33 +89,19 @@ const QRScannerPage: React.FC = () => {
                 }, 2000);
             }
         }
-    };
+    }, [token, cleanupScanner]);
 
     useEffect(() => {
         mountedRef.current = true;
         if (initRef.current) return;
         initRef.current = true;
 
-        const containerId = 'qr-scanner-container';
-
-        const cleanup = async () => {
-            try {
-                if (scannerRef.current) {
-                    if (scannerRef.current.isScanning) {
-                        await scannerRef.current.stop();
-                    }
-                    scannerRef.current.clear(); // Limpa UI
-                    scannerRef.current = null;
-                }
-            } catch { }
-        };
-
-        const start = async () => {
-            await cleanup();
-            if (!mountedRef.current) return;
+        const startScanner = async () => {
+            await cleanupScanner();
+            if (!mountedRef.current || !containerRef.current) return;
 
             try {
-                const scanner = new Html5Qrcode(containerId);
+                const scanner = new Html5Qrcode(containerRef.current.id);
                 scannerRef.current = scanner;
 
                 await scanner.start(
@@ -114,7 +118,7 @@ const QRScannerPage: React.FC = () => {
                 if (mountedRef.current) {
                     setStatus('scanning');
                 }
-            } catch (err: any) {
+            } catch {
                 if (mountedRef.current) {
                     setErrorMsg('Permita acesso à câmera');
                     setStatus('error');
@@ -122,14 +126,14 @@ const QRScannerPage: React.FC = () => {
             }
         };
 
-        // Pequeno delay para garantir renderização do DOM
-        setTimeout(start, 100);
+        // Small delay to ensure DOM is ready
+        setTimeout(startScanner, 100);
 
         return () => {
             mountedRef.current = false;
-            cleanup();
+            cleanupScanner();
         };
-    }, []);
+    }, [processQRCode, cleanupScanner]);
 
     const goToSample = () => {
         if (foundSample) {
@@ -157,39 +161,63 @@ const QRScannerPage: React.FC = () => {
             {/* Main Content */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', position: 'relative' }}>
 
-                {/* 1. CAMERA LAYOUT (Só mostra se NÃO for sucesso) */}
-                {status !== 'success' && (
-                    <>
-                        <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                            <div
-                                id="qr-scanner-container"
-                                style={{
-                                    width: '280px', height: '280px',
-                                    backgroundColor: 'black', borderRadius: '16px', overflow: 'hidden', border: '2px solid #3b82f6', position: 'relative'
-                                }}
-                            >
-                                {/* Loading Overlay inside camera */}
-                                {(status === 'loading' || status === 'init') && (
-                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                {/* Camera Layout - Hidden when success, but always in DOM */}
+                <div style={{
+                    display: status === 'success' ? 'none' : 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                }}>
+                    <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', marginBottom: '20px', position: 'relative' }}>
+                        {/* Scanner container - NO React children inside! html5-qrcode manages this */}
+                        <div
+                            ref={containerRef}
+                            id="qr-scanner-container"
+                            style={{
+                                width: '280px',
+                                height: '280px',
+                                backgroundColor: 'black',
+                                borderRadius: '16px',
+                                overflow: 'hidden',
+                                border: '2px solid #3b82f6'
+                            }}
+                        />
 
-                        {/* Status Message */}
-                        {status === 'scanning' && <p style={{ color: '#94a3b8' }}>Aponte para o QR Code</p>}
-
-                        {status === 'error' && (
-                            <div style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '8px', padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <AlertCircle size={20} />
-                                <span>{errorMsg}</span>
+                        {/* Loading overlay - OUTSIDE the scanner container to avoid conflicts */}
+                        {(status === 'loading' || status === 'init') && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 0, left: 0, right: 0, bottom: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                borderRadius: '16px',
+                                pointerEvents: 'none'
+                            }}>
+                                <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    border: '2px solid transparent',
+                                    borderTopColor: 'white',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite'
+                                }} />
                             </div>
                         )}
-                    </>
-                )}
+                    </div>
 
-                {/* 2. SUCCESS LAYOUT (Substitui a câmera) */}
+                    {/* Status Message */}
+                    {status === 'scanning' && <p style={{ color: '#94a3b8' }}>Aponte para o QR Code</p>}
+
+                    {status === 'error' && (
+                        <div style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '8px', padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertCircle size={20} />
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Success Layout */}
                 {status === 'success' && foundSample && (
                     <div style={{
                         width: '100%', maxWidth: '300px',
@@ -229,6 +257,14 @@ const QRScannerPage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* CSS for spinner animation */}
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

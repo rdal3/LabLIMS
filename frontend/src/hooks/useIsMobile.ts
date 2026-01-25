@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react';
 
+// Helper function to get initial values (runs once)
+const getInitialMobile = () => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
+};
+
+const getInitialScreenSize = (): 'xs' | 'sm' | 'md' | 'lg' | 'xl' => {
+    if (typeof window === 'undefined') return 'lg';
+    const width = window.innerWidth;
+    if (width < 480) return 'xs';
+    if (width < 640) return 'sm';
+    if (width < 768) return 'md';
+    if (width < 1024) return 'lg';
+    return 'xl';
+};
+
 export function useIsMobile() {
-    // Revertendo para inicialização segura para evitar erros de runtime
-    const [isMobile, setIsMobile] = useState(false);
-    const [screenSize, setScreenSize] = useState<'xs' | 'sm' | 'md' | 'lg' | 'xl'>('lg');
+    // Initialize with actual window size to prevent layout flash
+    const [isMobile, setIsMobile] = useState(getInitialMobile);
+    const [screenSize, setScreenSize] = useState(getInitialScreenSize);
 
     useEffect(() => {
         const checkDevice = () => {
@@ -19,6 +35,7 @@ export function useIsMobile() {
             else setScreenSize('xl');
         };
 
+        // Re-check on mount to ensure accuracy
         checkDevice();
         window.addEventListener('resize', checkDevice);
         window.addEventListener('orientationchange', checkDevice);
@@ -31,6 +48,7 @@ export function useIsMobile() {
 
     return { isMobile, screenSize };
 }
+
 
 export function useIsLandscape() {
     const [isLandscape, setIsLandscape] = useState(false);
