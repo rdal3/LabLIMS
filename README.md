@@ -1,9 +1,9 @@
 # 🧪 Lab-LIMS - Sistema de Gestão Laboratorial
 
-Sistema completo de gestão para laboratórios de análises ambientais, desenvolvido para o **Laboratório de Águas** da universidade. Permite controle total do fluxo de amostras, desde a coleta até a emissão de laudos.
+Sistema completo de gestão para laboratórios de análises ambientais. Desenvolvido como plataforma **whitelabel**, esta versão foi customizada para o **LabÁgua** da Universidade do Estado do Pará (UEPA).
 
-![Status](https://img.shields.io/badge/Status-MVP%20Pronto-brightgreen)
-![Licença](https://img.shields.io/badge/Licença-MIT-blue)
+![Status](https://img.shields.io/badge/Status-MVP%20v1.0-brightgreen)
+![Licença](https://img.shields.io/badge/Licença-Proprietária-red)
 
 ---
 
@@ -165,28 +165,24 @@ Edite este arquivo para adicionar/remover matrizes e parâmetros do seu laborat�
 
 ---
 
-## 🤝 Contribuindo
+## ⚖️ Licença
 
-1. Fork o projeto
-2. Crie uma branch: `git checkout -b feature/NovaFuncionalidade`
-3. Commit: `git commit -m 'Adiciona nova funcionalidade'`
-4. Push: `git push origin feature/NovaFuncionalidade`
-5. Abra um Pull Request
+**© 2026 Raphael David Alvarenga Lopes. Todos os direitos reservados.**
 
----
+Este software é proprietário e confidencial. É proibido copiar, modificar, distribuir ou utilizar este código sem autorização expressa do autor.
 
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Para licenciamento comercial ou parcerias, entre em contato.
 
 ---
 
-## 👥 Créditos
+## 👤 Autor
 
-Desenvolvido para o **Laboratório de Águas** - Universidade Federal
+**Raphael D. A. Lopes**
+
+Desenvolvido como plataforma whitelabel para gestão de laboratórios de análises ambientais.
 
 ---
 
 ## 📞 Suporte
 
-Encontrou um bug? Abra uma [Issue](https://github.com/rdal3/LabLIMS/issues)
+Para suporte, licenciamento ou customizações, entre em contato com o autor.
