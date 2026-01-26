@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu } from 'lucide-react';
+import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { API_BASE_URL } from './services/api';
 import { useIsMobile } from './hooks/useIsMobile';
@@ -8,6 +8,7 @@ import AmostrasPage from './pages/AmostrasPage';
 import LoginPage from './pages/LoginPage';
 import UsersPage from './pages/UsersPage';
 import QRScannerPage from './pages/QRScannerPage';
+import AdminPanelPage from './pages/AdminPanelPage';
 import logoImg from './img/LabAguaLogo.png';
 import { useState } from 'react';
 
@@ -241,6 +242,9 @@ function Navigation() {
             {hasRole('ADMIN', 'PROFESSOR') && (
               <NavLink to="/users" icon={Users} label="Usuários" />
             )}
+            {hasRole('ADMIN') && (
+              <NavLink to="/admin" icon={Shield} label="Admin" />
+            )}
           </div>
         </nav>
 
@@ -267,6 +271,9 @@ function Navigation() {
             <NavLink to="/scanner" icon={QrCode} label="Scanner" />
             {hasRole('ADMIN', 'PROFESSOR') && (
               <NavLink to="/users" icon={Users} label="Usuários" />
+            )}
+            {hasRole('ADMIN') && (
+              <NavLink to="/admin" icon={Shield} label="Admin" />
             )}
 
             <div className="ml-4 pl-4 border-l border-slate-200 flex items-center gap-3">
@@ -343,6 +350,7 @@ function AppContent() {
         <Route path="/amostras" element={<ProtectedRoute><AmostrasPage /></ProtectedRoute>} />
         <Route path="/scanner" element={<ProtectedRoute><QRScannerPage /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR']}><UsersPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute requiredRoles={['ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
         <Route path="/login" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

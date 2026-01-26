@@ -206,7 +206,43 @@ const migration = () => {
     )
   `).run();
 
-  // 5. Adicionar coluna uuid se não existir (para migrations antigas)
+  // 5. Tabela de parâmetros customizados (Admin Panel)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS custom_parameters (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      category TEXT CHECK(category IN ('fisicoq', 'micro', 'metais', 'btex', 'outros')) NOT NULL,
+      unit TEXT,
+      options TEXT,
+      is_column INTEGER DEFAULT 0,
+      display_order INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      created_by INTEGER REFERENCES users(id),
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT
+    )
+  `).run();
+
+  // 6. Tabela de histórico de modificações de amostras
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS sample_modifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sample_id INTEGER NOT NULL REFERENCES amostras(id),
+      sample_codigo TEXT,
+      user_id INTEGER REFERENCES users(id),
+      user_email TEXT,
+      user_name TEXT,
+      field_name TEXT NOT NULL,
+      field_label TEXT,
+      old_value TEXT,
+      new_value TEXT,
+      modification_type TEXT CHECK(modification_type IN ('CREATE', 'UPDATE', 'DELETE', 'STATUS_CHANGE')) DEFAULT 'UPDATE',
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+      ip_address TEXT
+    )
+  `).run();
+
+  // 7. Adicionar coluna uuid se não existir (para migrations antigas)
   const columns = db.prepare("PRAGMA table_info(amostras)").all();
   const columnNames = columns.map(c => c.name);
 
@@ -325,10 +361,12 @@ app.locals.db = db;
 // --- ROTAS DE AUTENTICAÇÃO ---
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
 const { requireAuth, requireRole } = require('./middleware/auth');
 
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
+app.use('/admin', adminRoutes);
 
 // Cria primeiro usuário ADMIN se não existir nenhum
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -488,34 +526,104 @@ app.patch('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCN
   const updates = req.body;
 
   try {
+    // Busca estado ANTES da atualização para comparação
+    const beforeState = db.prepare('SELECT * FROM amostras WHERE id = ?').get(id);
+    if (!beforeState) {
+      return res.status(404).json({ error: 'Amostra não encontrada' });
+    }
+
+    // Parse params antigos se existirem
+    let oldParams = {};
+    if (beforeState.params) {
+      try {
+        oldParams = JSON.parse(beforeState.params);
+      } catch (e) { oldParams = {}; }
+    }
+
     // Filtra apenas colunas permitidas (Segurança)
     const keys = Object.keys(updates).filter(key => ALLOWED_COLUMNS.includes(key));
 
-    if (keys.length === 0) {
+    if (keys.length === 0 && !updates.resultados) {
       return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
     }
 
     // Lógica para Parâmetros Dinâmicos
+    let newParams = null;
     if (updates.resultados) {
-      // Se vier 'resultados' do frontend, salvamos na coluna 'params'
       keys.push('params');
       updates.params = JSON.stringify(updates.resultados);
-
-      // Remove 'resultados' da lista de keys se tiver entrado apenas por segurança, 
-      // mas como filtramos ALLOWED_COLUMNS antes, 'resultados' não entraria.
-      // E agora adicionamos 'params' explicitamente.
+      newParams = updates.resultados;
     }
 
     const fields = keys.map(key => `${key} = ?`).join(', ');
     const values = keys.map(key => updates[key]);
-
-    // Adiciona o ID no final dos valores
     values.push(id);
 
     const stmt = db.prepare(`UPDATE amostras SET ${fields} WHERE id = ?`);
     const info = stmt.run(...values);
 
     if (info.changes === 0) return res.status(404).json({ error: 'Amostra não encontrada' });
+
+    // === REGISTRAR MODIFICAÇÕES ===
+    const logModification = db.prepare(`
+      INSERT INTO sample_modifications 
+        (sample_id, sample_codigo, user_id, user_email, user_name, field_name, field_label, old_value, new_value, modification_type, ip_address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // Buscar nome do usuário
+    const userInfo = db.prepare('SELECT full_name FROM users WHERE id = ?').get(req.user.id);
+    const userName = userInfo?.full_name || req.user.email;
+
+    // Log de mudanças em campos diretos (status, cliente, etc)
+    keys.forEach(key => {
+      if (key === 'params') return; // Tratamos separadamente
+
+      const oldValue = beforeState[key];
+      const newValue = updates[key];
+
+      // Só registra se realmente mudou
+      if (String(oldValue) !== String(newValue)) {
+        const modType = key === 'status' ? 'STATUS_CHANGE' : 'UPDATE';
+        logModification.run(
+          id,
+          beforeState.codigo,
+          req.user.id,
+          req.user.email,
+          userName,
+          key,
+          key, // label igual ao nome por enquanto
+          oldValue !== null && oldValue !== undefined ? String(oldValue) : null,
+          newValue !== null && newValue !== undefined ? String(newValue) : null,
+          modType,
+          req.ip
+        );
+      }
+    });
+
+    // Log de mudanças em parâmetros (resultados de análises)
+    if (newParams) {
+      Object.entries(newParams).forEach(([paramKey, newValue]) => {
+        const oldValue = oldParams[paramKey];
+
+        // Só registra se realmente mudou
+        if (String(oldValue || '') !== String(newValue || '')) {
+          logModification.run(
+            id,
+            beforeState.codigo,
+            req.user.id,
+            req.user.email,
+            userName,
+            paramKey,
+            paramKey, // TODO: buscar label do labConfig se disponível
+            oldValue !== null && oldValue !== undefined ? String(oldValue) : null,
+            newValue !== null && newValue !== undefined ? String(newValue) : null,
+            'UPDATE',
+            req.ip
+          );
+        }
+      });
+    }
 
     res.json({ ok: true, changes: info.changes });
 
@@ -533,6 +641,93 @@ app.delete('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR'), (req
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+// --- HISTÓRICO DE MODIFICAÇÕES DE AMOSTRAS ---
+
+// 6. GET histórico de uma amostra específica
+app.get('/amostras/:id/history', requireAuth, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const history = db.prepare(`
+      SELECT * FROM sample_modifications 
+      WHERE sample_id = ?
+      ORDER BY timestamp DESC
+    `).all(id);
+
+    res.json(history);
+  } catch (error) {
+    console.error('[HISTORY ERROR]', error);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
+// 7. GET histórico geral (paginado) - Para admin ver todas as modificações
+app.get('/amostras/modifications/all', requireAuth, requireRole('ADMIN', 'PROFESSOR'), (req, res) => {
+  const { page = 1, limit = 50, userId, sampleId, startDate, endDate, fieldName } = req.query;
+
+  try {
+    let whereConditions = [];
+    let params = [];
+
+    if (userId) {
+      whereConditions.push('user_id = ?');
+      params.push(userId);
+    }
+
+    if (sampleId) {
+      whereConditions.push('sample_id = ?');
+      params.push(sampleId);
+    }
+
+    if (startDate) {
+      whereConditions.push('date(timestamp) >= date(?)');
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      whereConditions.push('date(timestamp) <= date(?)');
+      params.push(endDate);
+    }
+
+    if (fieldName) {
+      whereConditions.push('field_name = ?');
+      params.push(fieldName);
+    }
+
+    const whereClause = whereConditions.length > 0
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
+
+    // Contagem total
+    const countQuery = `SELECT COUNT(*) as total FROM sample_modifications ${whereClause}`;
+    const { total } = db.prepare(countQuery).get(...params);
+
+    // Dados paginados
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const dataQuery = `
+      SELECT * FROM sample_modifications
+      ${whereClause}
+      ORDER BY timestamp DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const modifications = db.prepare(dataQuery).all(...params, parseInt(limit), offset);
+
+    res.json({
+      data: modifications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('[MODIFICATIONS ALL ERROR]', error);
+    res.status(500).json({ error: 'Erro ao buscar modificações' });
   }
 });
 
