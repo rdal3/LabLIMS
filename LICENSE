@@ -1,50 +1,16 @@
-LICENÇA PROPRIETÁRIA
+LabLIMS – Laboratory Information Management System
 
 Copyright (c) 2026 Raphael David Alvarenga Lopes
 
-TODOS OS DIREITOS RESERVADOS
+All rights reserved.
 
-Este software e sua documentação associada ("Software") são propriedade 
-exclusiva de Raphael David Alvarenga Lopes ("Autor").
+This software is proprietary and confidential.
+Unauthorized copying, modification, distribution, or use of this software,
+via any medium, is strictly prohibited without explicit written permission
+from the copyright holder.
 
-TERMOS E CONDIÇÕES
+This repository is provided for evaluation, academic analysis, and demonstration
+purposes only.
 
-1. PROIBIÇÕES
-   - É PROIBIDO copiar, reproduzir ou duplicar este Software.
-   - É PROIBIDO modificar, adaptar ou criar trabalhos derivados.
-   - É PROIBIDO distribuir, sublicenciar, vender ou transferir este Software.
-   - É PROIBIDO usar este Software para fins comerciais sem autorização.
-   - É PROIBIDO fazer engenharia reversa, descompilar ou desmontar.
-
-2. USO AUTORIZADO
-   Este Software é fornecido exclusivamente para uso interno do 
-   LabÁgua - Universidade do Estado do Pará (UEPA), conforme acordo 
-   entre as partes.
-
-3. CONFIDENCIALIDADE
-   O código-fonte, estrutura, organização e design deste Software 
-   são segredos comerciais e informações confidenciais do Autor.
-
-4. ISENÇÃO DE GARANTIAS
-   Este Software é fornecido "como está", sem garantias de qualquer tipo, 
-   expressas ou implícitas, incluindo, mas não se limitando a, garantias 
-   de comercialização, adequação a um propósito específico e não violação.
-
-5. LIMITAÇÃO DE RESPONSABILIDADE
-   Em nenhum caso o Autor será responsável por quaisquer danos diretos, 
-   indiretos, incidentais, especiais, exemplares ou consequenciais.
-
-6. RESCISÃO
-   Esta licença é automaticamente rescindida se você violar qualquer 
-   um de seus termos e condições.
-
-7. LEI APLICÁVEL
-   Esta licença será regida e interpretada de acordo com as leis 
-   da República Federativa do Brasil.
-
-Para licenciamento comercial, parcerias ou outras utilizações, 
-entre em contato com o Autor.
-
----
-Raphael David Alvarenga Lopes
-2026
+Commercial use, deployment in production environments, redistribution,
+or creation of derivative works is forbidden without prior authorization.
