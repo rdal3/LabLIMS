@@ -167,7 +167,7 @@ Edite este arquivo para adicionar/remover matrizes e parâmetros do seu laborat�
 
 ## ⚖️ Licença
 
-** O código-fonte está disponível publicamente apenas para fins de avaliação acadêmica, transparência e demonstração. Qualquer uso comercial, redistribuição, modificação ou implementação em ambientes de produção requer autorização expressa do autor. © 2026 Raphael David Alvarenga Lopes. Todos os direitos reservados.
+O código-fonte está disponível publicamente apenas para fins de avaliação acadêmica, transparência e demonstração. Qualquer uso comercial, redistribuição, modificação ou implementação em ambientes de produção requer autorização expressa do autor. © 2026 Raphael David Alvarenga Lopes. Todos os direitos reservados.
 
 ---
 
