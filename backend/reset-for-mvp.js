@@ -46,15 +46,15 @@ console.log('\n👤 Criando usuário admin padrão...');
 
 const adminPassword = bcrypt.hashSync('admin123', 10);
 db.prepare(`
-  INSERT INTO users (email, password_hash, full_name, role, is_active, must_change_password)
+  INSERT INTO users (email, password_hash, full_name, role, active, must_change_password)
   VALUES (?, ?, ?, ?, ?, ?)
 `).run(
-    'admin@lab.com',
-    adminPassword,
-    'Administrador',
-    'ADMIN',
-    1,
-    1  // Forçar mudança de senha no primeiro login
+  'admin@lab.com',
+  adminPassword,
+  'Administrador',
+  'ADMIN',
+  1,
+  1  // Forçar mudança de senha no primeiro login
 );
 
 console.log('   ✓ admin@lab.com criado (senha: admin123)');
@@ -64,8 +64,8 @@ console.log('   ⚠️  Usuário deve trocar a senha no primeiro login');
 console.log('\n📊 Status final do banco:');
 const tables = ['users', 'amostras', 'sessions', 'audit_logs', 'sample_modifications', 'custom_parameters'];
 tables.forEach(table => {
-    const count = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get().count;
-    console.log(`   ${table}: ${count} registros`);
+  const count = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get().count;
+  console.log(`   ${table}: ${count} registros`);
 });
 
 db.close();

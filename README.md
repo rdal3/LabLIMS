@@ -1,98 +1,192 @@
-# Lab-LIMS
+# 🧪 Lab-LIMS - Sistema de Gestão Laboratorial
 
-Sistema de Gestão de Informações para Laboratórios (Laboratory Information Management System)
+Sistema completo de gestão para laboratórios de análises ambientais, desenvolvido para o **Laboratório de Águas** da universidade. Permite controle total do fluxo de amostras, desde a coleta até a emissão de laudos.
 
-## 🎯 Sobre o Projeto
+![Status](https://img.shields.io/badge/Status-MVP%20Pronto-brightgreen)
+![Licença](https://img.shields.io/badge/Licença-MIT-blue)
 
-Lab-LIMS é um sistema completo para gerenciamento de amostras laboratoriais desenvolvido especificamente para laboratórios de análise de água e ambientais. Oferece controle de amostras, rastreabilidade, geração de etiquetas com QR Code e dashboard em tempo real.
+---
 
 ## ✨ Funcionalidades
 
-- 🔐 **Autenticação e RBAC** - 4 níveis de acesso (Admin, Professor, Técnico, Voluntário)
-- 📊 **Dashboard Interativo** - Visualização em tempo real de estatísticas e progresso
-- 🏷️ **Geração de Etiquetas** - QR Codes para rastreabilidade
-- 🔬 **Gestão de Amostras** - CRUD completo com múltiplos parâmetros analíticos
-- 📝 **Auditoria Completa** - Registro de todas as ações do sistema
-- 🎨 **Interface Moderna** - Design responsivo e intuitivo
+### 📋 Gestão de Amostras
+- **Geração de lotes** com códigos sequenciais automáticos
+- **QR Codes** únicos para cada amostra
+- **Scanner QR** integrado para acesso rápido (mobile e desktop)
+- **Rastreamento de status**: Aguardando → Em Análise → Concluído
 
-## 🚀 Início Rápido
+### 🏷️ Etiquetas
+- Impressão em **papel A4** (múltiplas por página)
+- Suporte para **etiquetadoras térmicas** (30mm × 60mm)
+- Seleção de **quantidade de cópias**
+- QR Code + código legível + data + cliente
 
+### 📊 Parâmetros Analíticos
+- **Físico-Químicos**: pH, condutividade, turbidez, OD, DBO, DQO...
+- **Microbiológicos**: Coliformes, E. coli, Bactérias Heterotróficas
+- **Metais**: Ferro, Chumbo, Cádmio, Cromo...
+- **BTEX**: Benzeno, Tolueno, Etilbenzeno, Xilenos
+- Configurável por **matriz analítica** (água superficial, subterrânea, efluente...)
+
+### 📄 Relatórios
+- Impressão de **laudo de amostra única**
+- Impressão de **lote completo** (todas amostras do mesmo prefixo)
+- Barra de progresso das análises
+- Status de cada parâmetro (concluído/pendente)
+- Design profissional para A4
+
+### 🔐 Segurança
+- Autenticação JWT com sessões controladas
+- **4 níveis de acesso**: Admin, Professor, Técnico, Voluntário
+- Logs de auditoria completos
+- Histórico de modificações por amostra
+- Controle de sessões simultâneas
+
+### 📱 Responsivo
+- Interface adaptada para **desktop e mobile**
+- Scanner QR funciona na câmera do celular
+- Navegação simplificada em telas pequenas
+
+---
+
+## 🏗️ Arquitetura
+
+```
+Lab-LIMS/
+├── backend/           # API Node.js + Express
+│   ├── app.js         # Servidor principal
+│   ├── lims.db        # Banco SQLite
+│   └── .env           # Configurações
+│
+└── frontend/          # React + TypeScript + Vite
+    ├── src/
+    │   ├── pages/     # Páginas da aplicação
+    │   ├── components/# Componentes reutilizáveis
+    │   ├── config/    # Configurações do laboratório
+    │   └── contexts/  # AuthContext
+    └── dist/          # Build de produção
+```
+
+---
+
+## 🚀 Instalação Rápida (Windows)
+
+### Pré-requisitos
+- [Node.js 18+](https://nodejs.org/)
+- Git
+
+### 1. Clone o repositório
 ```bash
-# Backend
+git clone https://github.com/rdal3/LabLIMS.git
+cd Lab-LIMS
+```
+
+### 2. Configure o Backend
+```bash
 cd backend
 npm install
+copy .env.example .env
+# Edite o .env com seu JWT_SECRET
 node app.js
+```
 
-# Frontend (novo terminal)
+### 3. Configure o Frontend
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Acesse: **http://localhost:5173**  
-Login padrão: `admin@lab.com` / `admin123`
+### 4. Acesse
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3001
 
-## 📖 Documentação
+### Credenciais iniciais
+- **Email**: admin@lab.com
+- **Senha**: admin123
 
-- **[Manual de Instalação Completo](INSTALL.md)** - Instalação local e produção
-- **[Arquitetura de Segurança](SECURITY_ARCHITECTURE.md)** - Especificações RBAC e auditoria
-
-## 🛠️ Tecnologias
-
-**Backend:**
-- Node.js + Express
-- SQLite3 (better-sqlite3)
-- JWT + bcrypt
-
-**Frontend:**
-- React + TypeScript
-- Vite
-- React Router
-- Lucide Icons
-
-## 📦 Estrutura
-
-```
-Lab-LIMS/
-├── backend/         # API REST + Banco de dados
-├── frontend/        # Interface React
-├── INSTALL.md       # Manual de instalação
-└── README.md        # Este arquivo
-```
-
-## 🔒 Segurança
-
-- ✅ Senhas com bcrypt (12 rounds)
-- ✅ JWT stateless com expiração
-- ✅ Auditoria de todas as ações críticas
-- ✅ RBAC com 4 níveis de permissão
-- ✅ Soft delete para dados sensíveis
-
-## 📊 Sistema de Códigos Únicos
-
-- **UUID Interno:** Identificação única por amostra
-- **Código Visível:** Pode repetir em datas diferentes
-- **Rastreabilidade:** QR Code em cada etiqueta
-
-## 🧪 Matrizes Analíticas Suportadas
-
-- Água (diversos tipos)
-- Solo
-- Efluente
-- Personalizável via configuração
-
-## 👥 Contribuindo
-
-Este projeto foi desenvolvido para uso acadêmico. Sugestões e melhorias são bem-vindas!
-
-## 📄 Licença
-
-Este projeto é de uso interno do laboratório.
-
-## 🆘 Suporte
-
-Consulte o [Manual de Instalação](INSTALL.md) para resolução de problemas comuns.
+⚠️ **Importante**: Troque a senha no primeiro login!
 
 ---
 
-Desenvolvido por Raphael David Alvarenga Lopes (https://github.com/rdal3) com carinho para gestão laboratorial eficiente
+## 🐧 Instalação em Ubuntu Server
+
+Veja o guia completo em [INSTALL_UBUNTU.md](./INSTALL_UBUNTU.md)
+
+---
+
+## 📋 Uso Básico
+
+### Fluxo de Trabalho
+
+1. **Login** com suas credenciais
+2. **Gerar Lote** de amostras:
+   - Selecione a matriz (água superficial, efluente, etc)
+   - Informe cliente e ponto de coleta
+   - Defina intervalo (ex: 1 a 10)
+   - Gere e imprima as etiquetas
+3. **Editar Amostras**:
+   - Escaneie o QR code ou busque no banco
+   - Preencha os resultados das análises
+   - Salve e atualize o status
+4. **Gerar Relatório**:
+   - Clique em "Relatório" na amostra
+   - Escolha amostra única ou lote
+   - Imprima para apresentar
+
+### Painel Admin (ADMIN e PROFESSOR)
+- **Visão Geral**: Estatísticas do sistema
+- **Logs de Auditoria**: Todas as ações no sistema
+- **Modificações de Amostras**: Histórico detalhado de edições
+- **Sessões Ativas**: Controle de logins
+- **Usuários**: Criar, editar, desativar usuários
+- **Parâmetros**: Gerenciar parâmetros analíticos
+
+---
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente (backend/.env)
+
+```env
+# Porta do servidor
+PORT=3001
+
+# Chave secreta para JWT (gere uma aleatória!)
+JWT_SECRET=sua_chave_super_secreta_aqui
+
+# URLs permitidas (CORS)
+ALLOWED_ORIGINS=http://localhost:5173,http://192.168.1.100:5173
+```
+
+### Matrizes Analíticas (frontend/src/config/labConfig.ts)
+
+Edite este arquivo para adicionar/remover matrizes e parâmetros do seu laboratório.
+
+---
+
+## 🤝 Contribuindo
+
+1. Fork o projeto
+2. Crie uma branch: `git checkout -b feature/NovaFuncionalidade`
+3. Commit: `git commit -m 'Adiciona nova funcionalidade'`
+4. Push: `git push origin feature/NovaFuncionalidade`
+5. Abra um Pull Request
+
+---
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+
+## 👥 Créditos
+
+Desenvolvido para o **Laboratório de Águas** - Universidade Federal
+
+---
+
+## 📞 Suporte
+
+Encontrou um bug? Abra uma [Issue](https://github.com/rdal3/LabLIMS/issues)
