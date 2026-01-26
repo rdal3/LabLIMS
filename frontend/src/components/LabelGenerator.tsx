@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Printer, LayoutGrid, Type, Calendar, FlaskConical, Edit3 } from 'lucide-react';
+import { Plus, Printer, LayoutGrid, Type, Calendar, FlaskConical, Edit3, X, Copy, FileText, Tag } from 'lucide-react';
 import LabelTemplate from './LabelTemplate';
 import AnalysisSelector from './AnalysisSelector';
 import { ANALYTICAL_MATRICES } from '@/config/labConfig';
@@ -8,20 +8,22 @@ import { endpoints } from '../services/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 interface LabelGeneratorProps {
-  onSamplesCreated: () => void; // Avisa o pai para atualizar a lista
+  onSamplesCreated: () => void;
 }
+
+type PrintType = 'a4' | 'label30x60';
 
 const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => {
   const { token } = useAuth();
   const { isMobile } = useIsMobile();
+
   // Estado do Formulário
   const [formData, setFormData] = useState({
-    matrizId: '', // ID da matriz selecionada
-    pontoColeta: '', // Apenas o identificador do ponto
+    matrizId: '',
+    pontoColeta: '',
     cliente: '',
-    startNum: 1,
-    endNum: 10,
-    copies: 1,
+    startNum: '',
+    endNum: '',
     description: '',
     date: new Date().toISOString().split('T')[0]
   });
@@ -30,24 +32,29 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
   const [selectedAnalyses, setSelectedAnalyses] = useState<string[]>([]);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
-  // Estado de Configuração Visual
+  // Estado de configuração visual
   const [config, setConfig] = useState({
     columns: 3,
     showBorder: true,
     fontSize: 'normal' as 'small' | 'normal' | 'large'
   });
 
-  // Estado das etiquetas geradas (para preview e impressão)
+  // Estado das etiquetas geradas
   const [generatedLabels, setGeneratedLabels] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Busca matriz selecionada
+  // Modal de impressão
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printConfig, setPrintConfig] = useState({
+    copies: 1,
+    printType: 'a4' as PrintType
+  });
+
   const selectedMatrix = ANALYTICAL_MATRICES.find(m => m.id === formData.matrizId);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    // Se mudou a matriz, atualiza as análises padrão
     if (name === 'matrizId') {
       const matrix = ANALYTICAL_MATRICES.find(m => m.id === value);
       if (matrix) {
@@ -57,7 +64,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
 
     setFormData(prev => ({
       ...prev,
-      [name]: (name === 'startNum' || name === 'endNum' || name === 'copies') ? parseInt(value) || 0 : value
+      [name]: value
     }));
   };
 
@@ -68,7 +75,14 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
       return alert('Por favor, selecione uma matriz analítica.');
     }
 
-    if (formData.endNum < formData.startNum) {
+    const start = parseInt(formData.startNum) || 0;
+    const end = parseInt(formData.endNum) || 0;
+
+    if (!start || !end) {
+      return alert('Por favor, preencha os números de início e fim.');
+    }
+
+    if (end < start) {
       return alert('O número final deve ser maior que o inicial.');
     }
 
@@ -78,12 +92,9 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
     const newLabels = [];
 
     try {
-      // Loop para criar cada amostra no backend
-      for (let i = formData.startNum; i <= formData.endNum; i++) {
-        // Monta código com prefixo da matriz + ponto + número
+      for (let i = start; i <= end; i++) {
         const codigoVisivel = `${selectedMatrix.prefix}${formData.pontoColeta}-${String(i).padStart(2, '0')}`;
 
-        // 1. Cria no Banco (POST)
         const response = await fetch(`${endpoints.amostras}`, {
           method: 'POST',
           headers: {
@@ -102,24 +113,20 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
 
         if (!response.ok) throw new Error(`Falha ao criar ${codigoVisivel}`);
 
-        const data = await response.json(); // O backend devolve o ID gerado (ex: 1, 2, 3)
-
-        // 2. Prepara objeto para impressão (Usando ID do banco para o UUID)
-        // UUID será uma combinação robusta: CODIGO + ID_BANCO
+        const data = await response.json();
         const uuidReal = `${codigoVisivel}_${data.id}`;
 
-        for (let c = 0; c < formData.copies; c++) {
-          newLabels.push({
-            uuid: uuidReal,
-            idVisible: codigoVisivel,
-            date: formData.date,
-            description: formData.cliente || formData.pontoColeta || ''
-          });
-        }
+        newLabels.push({
+          uuid: uuidReal,
+          idVisible: codigoVisivel,
+          date: formData.date,
+          description: formData.cliente || formData.pontoColeta || '',
+          matriz: selectedMatrix.name
+        });
       }
 
       setGeneratedLabels(newLabels);
-      onSamplesCreated(); // Atualiza a contagem no pai
+      onSamplesCreated();
       alert('Lote registrado com sucesso no banco!');
 
     } catch (error) {
@@ -130,43 +137,89 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
     }
   };
 
-  const handlePrint = () => {
+  const openPrintModal = () => {
     if (generatedLabels.length === 0) {
       alert('Gere as etiquetas primeiro!');
       return;
     }
+    setShowPrintModal(true);
+  };
 
-    // Gera HTML das etiquetas
-    const labelsHtml = generatedLabels.map(label => `
-      <div style="
-        display: flex;
-        align-items: stretch;
-        border: ${config.showBorder ? '2px solid black' : '1px dashed #ccc'};
-        background: white;
-        width: 100%;
-        min-height: 90px;
-        page-break-inside: avoid;
-        position: relative;
-        padding: 8px;
-      ">
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-right: 8px;">
-          <div style="font-size: 7px; font-weight: bold; color: #333; margin-bottom: 4px;">
-            ${new Date(label.date).toLocaleDateString('pt-BR')}
+  const handlePrint = () => {
+    // Gera etiquetas com cópias
+    const labelsWithCopies: any[] = [];
+    generatedLabels.forEach(label => {
+      for (let i = 0; i < printConfig.copies; i++) {
+        labelsWithCopies.push(label);
+      }
+    });
+
+    const isLabelPrinter = printConfig.printType === 'label30x60';
+
+    // Estilos diferentes para A4 vs Etiquetadora
+    const labelStyle = isLabelPrinter ? `
+      width: 60mm;
+      height: 30mm;
+      display: flex;
+      align-items: center;
+      padding: 2mm;
+      border: 0.5mm solid #000;
+      background: white;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+    ` : `
+      display: flex;
+      align-items: center;
+      border: 1.5px solid #000;
+      background: white;
+      width: 100%;
+      min-height: 28mm;
+      padding: 3mm;
+      page-break-inside: avoid;
+      border-radius: 2mm;
+    `;
+
+    const codeStyle = isLabelPrinter ? `
+      font-size: 11pt;
+      font-weight: 900;
+      font-family: 'Courier New', monospace;
+      letter-spacing: -0.5px;
+    ` : `
+      font-size: 14pt;
+      font-weight: 900;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0;
+    `;
+
+    const qrSize = isLabelPrinter ? '22mm' : '20mm';
+
+    const labelsHtml = labelsWithCopies.map(label => `
+      <div style="${labelStyle}">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-right: 2mm;">
+          <div style="font-size: 8pt; font-weight: bold; color: #333; margin-bottom: 1mm; display: flex; gap: 3mm;">
+            <span>${new Date(label.date).toLocaleDateString('pt-BR')}</span>
+            ${label.matriz ? `<span style="color: #0066cc;">${label.matriz}</span>` : ''}
           </div>
-          <div style="font-family: 'Courier New', monospace; font-size: ${config.fontSize === 'small' ? '16px' : config.fontSize === 'large' ? '24px' : '20px'}; font-weight: bold; text-align: center; line-height: 1.2;">
+          <div style="${codeStyle}">
             ${label.idVisible}
           </div>
           ${label.description ? `
-            <div style="font-size: 8px; font-weight: bold; text-transform: uppercase; border-top: 1px solid black; padding-top: 3px; margin-top: 6px; width: 90%; text-align: center; color: #222;">
+            <div style="font-size: 7pt; font-weight: bold; text-transform: uppercase; border-top: 0.5mm solid #333; padding-top: 1mm; margin-top: 1.5mm; width: 95%; text-align: center; color: #222; letter-spacing: 0.5px;">
               ${label.description}
             </div>
           ` : ''}
         </div>
-        <div style="width: 75px; border-left: 1px solid black; padding-left: 6px; display: flex; align-items: center; justify-content: center;">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(label.uuid)}" style="width: 70px; height: 70px;" alt="QR" />
+        <div style="border-left: 0.5mm solid #000; padding-left: 2mm; display: flex; align-items: center; justify-content: center;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(label.uuid)}" 
+               style="width: ${qrSize}; height: ${qrSize};" alt="QR" />
         </div>
       </div>
     `).join('');
+
+    const pageSize = isLabelPrinter ? '62mm 30mm' : 'A4';
+    const gridCols = isLabelPrinter ? 1 : config.columns;
+    const gap = isLabelPrinter ? '0' : '3mm';
+    const margin = isLabelPrinter ? '0' : '8mm';
 
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -176,16 +229,30 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         <head>
           <title>Imprimir Etiquetas</title>
           <style>
-            @page { size: A4; margin: 10mm; }
-            body { margin: 0; padding: 15px; font-family: Arial, sans-serif; }
+            @page { 
+              size: ${pageSize}; 
+              margin: ${margin}; 
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body { 
+              font-family: Arial, sans-serif;
+              ${isLabelPrinter ? '' : 'padding: 5mm;'}
+            }
             .labels-container {
               display: grid;
-              grid-template-columns: repeat(${config.columns}, 1fr);
-              gap: 8px;
+              grid-template-columns: repeat(${gridCols}, 1fr);
+              gap: ${gap};
+              ${isLabelPrinter ? 'width: 60mm;' : ''}
             }
             @media print {
-              body { padding: 5mm; }
-              .labels-container { gap: 5mm; }
+              body { 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
             }
           </style>
         </head>
@@ -208,6 +275,8 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
       `);
       printWindow.document.close();
     }
+
+    setShowPrintModal(false);
   };
 
   const getGridClass = () => {
@@ -221,44 +290,26 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
   return (
     <div className={isMobile ? 'space-y-4' : 'grid lg:grid-cols-12 gap-8'}>
 
-      {/* --- ESTILOS DE IMPRESSAO --- */}
+      {/* Estilos de impressão */}
       {!isMobile && (
         <style>{`
         @media print {
-          @page { 
-            size: A4; 
-            margin: 10mm; 
-          }
-          
-          /* Esconde tudo exceto a área de impressão */
-          body > *:not(#root) { 
-            display: none !important; 
-          }
-          
-          #root > *:not(.print-container) {
-            display: none !important;
-          }
-          
-          /* Mostra apenas a área de impressão */
-          .print-container {
-            display: block !important;
-          }
-          
+          @page { size: A4; margin: 10mm; }
+          body > *:not(#root) { display: none !important; }
+          #root > *:not(.print-container) { display: none !important; }
+          .print-container { display: block !important; }
           #print-area {
             position: static !important;
             background: white !important;
             padding: 0 !important;
             box-shadow: none !important;
           }
-          
           .print-grid { 
             display: grid !important; 
             gap: 4mm !important; 
             grid-template-columns: repeat(${config.columns}, 1fr) !important;
             page-break-inside: avoid !important;
           }
-          
-          /* Garante que etiquetas sejam visíveis */
           .label-item {
             page-break-inside: avoid !important;
             display: block !important;
@@ -267,7 +318,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
       `}</style>
       )}
 
-      {/* FORMULARIO - full width em mobile */}
+      {/* FORMULÁRIO */}
       <div className={`bg-white rounded-xl shadow-sm border border-slate-200 ${isMobile ? 'p-3' : 'lg:col-span-4 p-6 h-fit'} ${isMobile ? 'space-y-3' : 'space-y-4'}`}>
         <h2 className={`font-bold flex items-center gap-2 text-slate-700 ${isMobile ? 'text-sm' : 'text-lg'}`}>
           <Plus size={isMobile ? 16 : 20} className="text-blue-600" /> Nova Sequência
@@ -345,7 +396,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
             </div>
             {selectedMatrix && formData.pontoColeta && (
               <p className="text-xs text-slate-500 mt-1.5">
-                Códigos gerados: <span className="font-mono font-bold">{selectedMatrix.prefix}{formData.pontoColeta}-01</span>, <span className="font-mono font-bold">{selectedMatrix.prefix}{formData.pontoColeta}-02</span>...
+                Códigos: <span className="font-mono font-bold">{selectedMatrix.prefix}{formData.pontoColeta}-01</span>, <span className="font-mono font-bold">{selectedMatrix.prefix}{formData.pontoColeta}-02</span>...
               </p>
             )}
           </div>
@@ -362,13 +413,25 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Início</label>
-              <input type="number" name="startNum" value={formData.startNum} onChange={handleInputChange}
-                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`} />
+              <input
+                type="number"
+                name="startNum"
+                value={formData.startNum}
+                onChange={handleInputChange}
+                placeholder="Ex: 1"
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`}
+              />
             </div>
             <div>
               <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Fim</label>
-              <input type="number" name="endNum" value={formData.endNum} onChange={handleInputChange}
-                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`} />
+              <input
+                type="number"
+                name="endNum"
+                value={formData.endNum}
+                onChange={handleInputChange}
+                placeholder="Ex: 10"
+                className={`w-full bg-slate-50 border border-slate-200 rounded-lg ${isMobile ? 'p-2 text-sm' : 'p-3'}`}
+              />
             </div>
           </div>
 
@@ -379,7 +442,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         </form>
       </div>
 
-      {/* COLUNA DIREITA: PREVIEW & TOOLS - escondida em mobile */}
+      {/* COLUNA DIREITA: PREVIEW & TOOLS */}
       {!isMobile && (
         <div className="lg:col-span-8 space-y-6">
 
@@ -412,13 +475,13 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
               </div>
             </div>
 
-            <button onClick={handlePrint} disabled={generatedLabels.length === 0}
+            <button onClick={openPrintModal} disabled={generatedLabels.length === 0}
               className="bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-30">
               <Printer size={18} /> Imprimir
             </button>
           </div>
 
-          {/* Área de Preview (e Impressão Invisível) */}
+          {/* Área de Preview */}
           <div id="print-area" className="bg-slate-200 p-8 rounded-2xl overflow-auto flex justify-center shadow-inner min-h-[500px]">
             <div className={`bg-white shadow-2xl p-8 min-h-[297mm] w-[210mm] grid content-start gap-4 ${getGridClass()} print-grid`}>
               {generatedLabels.length > 0 ? generatedLabels.map((lbl, idx) => (
@@ -440,7 +503,7 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         </div>
       )}
 
-      {/* Mobile: Mensagem de sucesso após gerar */}
+      {/* Mobile: Mensagem de sucesso */}
       {isMobile && generatedLabels.length > 0 && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
           <p className="text-emerald-700 font-bold">✅ {generatedLabels.length} etiqueta(s) gerada(s)!</p>
@@ -456,6 +519,126 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
         onClose={() => setShowAnalysisModal(false)}
         onSave={(analyses) => setSelectedAnalyses(analyses)}
       />
+
+      {/* Modal de Configuração de Impressão */}
+      {showPrintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 text-white flex justify-between items-center rounded-t-2xl">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Printer size={20} />
+                Configurar Impressão
+              </h3>
+              <button onClick={() => setShowPrintModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Resumo */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Tag size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-blue-900">{generatedLabels.length} amostra(s) no lote</p>
+                    <p className="text-sm text-blue-600">
+                      Total a imprimir: {generatedLabels.length * printConfig.copies} etiqueta(s)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cópias */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-2 flex items-center gap-2">
+                  <Copy size={16} className="text-slate-500" />
+                  Cópias por amostra
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={printConfig.copies}
+                    onChange={(e) => setPrintConfig(prev => ({ ...prev, copies: Math.max(1, parseInt(e.target.value) || 1) }))}
+                    className="w-24 px-4 py-3 text-center text-xl font-bold border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setPrintConfig(prev => ({ ...prev, copies: n }))}
+                        className={`px-3 py-2 rounded-lg font-bold transition-all ${printConfig.copies === n
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                      >
+                        {n}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tipo de Impressão */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-2">
+                  Tipo de Impressão
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setPrintConfig(prev => ({ ...prev, printType: 'a4' }))}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${printConfig.printType === 'a4'
+                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    <FileText size={28} className={printConfig.printType === 'a4' ? 'text-blue-600' : 'text-slate-400'} />
+                    <span className={`font-bold ${printConfig.printType === 'a4' ? 'text-blue-700' : 'text-slate-600'}`}>
+                      Papel A4
+                    </span>
+                    <span className="text-xs text-slate-500">Múltiplas etiquetas</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPrintConfig(prev => ({ ...prev, printType: 'label30x60' }))}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${printConfig.printType === 'label30x60'
+                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                  >
+                    <Tag size={28} className={printConfig.printType === 'label30x60' ? 'text-blue-600' : 'text-slate-400'} />
+                    <span className={`font-bold ${printConfig.printType === 'label30x60' ? 'text-blue-700' : 'text-slate-600'}`}>
+                      Etiquetadora
+                    </span>
+                    <span className="text-xs text-slate-500">30mm × 60mm</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="flex-1 px-4 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-100 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all"
+                >
+                  <Printer size={18} />
+                  Imprimir {generatedLabels.length * printConfig.copies}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

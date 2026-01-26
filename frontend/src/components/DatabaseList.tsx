@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Pencil, Trash2, FileText, Loader2, Printer, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, FileText, Loader2, Printer, ChevronRight, ClipboardList } from 'lucide-react';
 import SimplePrintModal from './ReprintModal';
+import ReportModal from './ReportModal';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export interface Amostra {
@@ -27,6 +28,7 @@ interface DatabaseListProps {
 const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit, onDelete }) => {
   const { isMobile } = useIsMobile();
   const [reprintingSample, setReprintingSample] = useState<Amostra | null>(null);
+  const [reportSample, setReportSample] = useState<Amostra | null>(null);
 
   if (isLoading) {
     return (
@@ -99,7 +101,10 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
                   <Pencil size={14} /> Editar
                 </button>
                 <button onClick={() => setReprintingSample(amostra)} className="flex-1 py-3 text-green-600 text-sm font-medium flex items-center justify-center gap-1">
-                  <Printer size={14} /> Imprimir
+                  <Printer size={14} /> Etiqueta
+                </button>
+                <button onClick={() => setReportSample(amostra)} className="flex-1 py-3 text-violet-600 text-sm font-medium flex items-center justify-center gap-1">
+                  <ClipboardList size={14} /> Relatório
                 </button>
                 <button onClick={() => onDelete(amostra.id, amostra.codigo)} className="flex-1 py-3 text-red-600 text-sm font-medium flex items-center justify-center gap-1">
                   <Trash2 size={14} /> Excluir
@@ -111,6 +116,14 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
 
         {reprintingSample && (
           <SimplePrintModal isOpen={!!reprintingSample} amostra={reprintingSample} onClose={() => setReprintingSample(null)} />
+        )}
+        {reportSample && (
+          <ReportModal
+            isOpen={!!reportSample}
+            sample={reportSample}
+            allSamples={amostras}
+            onClose={() => setReportSample(null)}
+          />
         )}
       </div>
     );
@@ -161,9 +174,10 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => onEdit(amostra)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
-                      <button onClick={() => setReprintingSample(amostra)} className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg"><Printer size={18} /></button>
-                      <button onClick={() => onDelete(amostra.id, amostra.codigo)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                      <button onClick={() => onEdit(amostra)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Editar"><Pencil size={18} /></button>
+                      <button onClick={() => setReprintingSample(amostra)} className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Reimprimir Etiqueta"><Printer size={18} /></button>
+                      <button onClick={() => setReportSample(amostra)} className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg" title="Gerar Relatório"><ClipboardList size={18} /></button>
+                      <button onClick={() => onDelete(amostra.id, amostra.codigo)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -174,6 +188,14 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
       </div>
       {reprintingSample && (
         <SimplePrintModal isOpen={!!reprintingSample} amostra={reprintingSample} onClose={() => setReprintingSample(null)} />
+      )}
+      {reportSample && (
+        <ReportModal
+          isOpen={!!reportSample}
+          sample={reportSample}
+          allSamples={amostras}
+          onClose={() => setReportSample(null)}
+        />
       )}
     </div>
   );
