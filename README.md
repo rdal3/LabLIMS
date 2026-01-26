@@ -167,11 +167,7 @@ Edite este arquivo para adicionar/remover matrizes e parâmetros do seu laborat�
 
 ## ⚖️ Licença
 
-**© 2026 Raphael David Alvarenga Lopes. Todos os direitos reservados.**
-
-Este software é proprietário e confidencial. É proibido copiar, modificar, distribuir ou utilizar este código sem autorização expressa do autor.
-
-Para licenciamento comercial ou parcerias, entre em contato.
+** O código-fonte está disponível publicamente apenas para fins de avaliação acadêmica, transparência e demonstração. Qualquer uso comercial, redistribuição, modificação ou implementação em ambientes de produção requer autorização expressa do autor. © 2026 Raphael David Alvarenga Lopes. Todos os direitos reservados.
 
 ---
 
