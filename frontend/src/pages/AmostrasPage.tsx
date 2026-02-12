@@ -64,14 +64,13 @@ const AmostrasPage: React.FC = () => {
   const fetchAmostras = async () => {
     setIsLoading(true);
     try {
-      // Cria a URL baseada no endpoint importado
-      const url = new URL(endpoints.amostras);
+      // Cria a URL com parâmetros (Usando URLSearchParams para suportar path relativo)
+      const params = new URLSearchParams();
+      if (busca) params.append('busca', busca);
+      params.append('ordem', ordem);
 
-      // Adiciona parâmetros de busca se existirem
-      if (busca) url.searchParams.append('busca', busca);
-
-      // O novo backend ordena por ID automaticamente, mas podemos enviar o param
-      url.searchParams.append('ordem', ordem);
+      const queryString = params.toString();
+      const url = queryString ? `${endpoints.amostras}?${queryString}` : endpoints.amostras;
 
       const res = await fetch(url.toString(), {
         headers: {

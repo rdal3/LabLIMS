@@ -1,17 +1,7 @@
 // Configuração centralizada dos endpoints
-// Detecta automaticamente o IP para funcionar no celular
-const getApiUrl = () => {
-  // Se tiver variável de ambiente, usa ela
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  // Usa o mesmo host que o frontend está rodando (funciona no celular)
-  const host = window.location.hostname;
-  return `http://${host}:3001`;
-};
-
-export const API_BASE_URL = getApiUrl();
+// FIX: Forçando path relativo para funcionar com Cloudflare Tunnel (Single Domain)
+// Isso elimina problemas de CORS e necessidade de VITE_API_URL no build
+export const API_BASE_URL = '/api';
 
 export const endpoints = {
   amostras: `${API_BASE_URL}/amostras`,

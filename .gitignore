@@ -1,42 +1,39 @@
---- DEPENDÊNCIAS (Frontend e Backend) ---
-
-node_modules
-node_modules
-dist
-dist
-build
-build
-coverage
-
---- AMBIENTE E SEGURANÇA (Segredos) ---
-
-.env
-.env.local
-.env..local
-.pem
-
---- LOGS ---
-
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+# Logs
 logs
-.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
---- IDE  EDITOR ---
+# Database
+backend/lims.db-shm
+backend/lims.db-wal
+*.db
+*.sqlite
+*.sqlite3
 
-.vscode
+# Tunnel Configs (Sensitive)
+tunnel_*.yml
+tunnel_*.yaml
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
 .idea
-.swp
-.swo
 .DS_Store
-.suo
-.ntvs
-.njsproj
-.sln
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
---- SISTEMA ---
-
-Thumbs.db
-ehthumbs.db
-dashboard.md
+# Environment variables
+.env
+.env.*

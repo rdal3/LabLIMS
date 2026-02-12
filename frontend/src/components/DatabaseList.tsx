@@ -4,6 +4,15 @@ import SimplePrintModal from './ReprintModal';
 import ReportModal from './ReportModal';
 import { useIsMobile } from '../hooks/useIsMobile';
 
+export interface SampleAnalysis {
+  parameter_key: string;
+  status: 'PLANNED' | 'DONE' | 'CANCELED' | 'FAILED';
+  planned_at?: string;
+  completed_at?: string;
+  completed_by?: number;
+  notes?: string;
+}
+
 export interface Amostra {
   id: number;
   codigo: string;
@@ -13,6 +22,7 @@ export interface Amostra {
   dataColeta?: string;
   status: string;
   observacoes?: string;
+  analyses?: SampleAnalysis[];
   analysesPlanned?: string[];
   analysesCompleted?: string[];
   [key: string]: any;
@@ -50,6 +60,12 @@ const DatabaseList: React.FC<DatabaseListProps> = ({ amostras, isLoading, onEdit
   }
 
   const getProgress = (amostra: Amostra) => {
+    // Usa analyses relacional se disponível, senão fallback para JSON arrays
+    if (amostra.analyses && amostra.analyses.length > 0) {
+      const active = amostra.analyses.filter(a => a.status !== 'CANCELED');
+      const done = active.filter(a => a.status === 'DONE');
+      return active.length > 0 ? Math.round((done.length / active.length) * 100) : 0;
+    }
     const planned = amostra.analysesPlanned?.length || 0;
     const completed = amostra.analysesCompleted?.length || 0;
     return planned > 0 ? Math.round((completed / planned) * 100) : 0;

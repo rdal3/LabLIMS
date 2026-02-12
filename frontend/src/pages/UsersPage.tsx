@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { endpoints } from '../services/api';
 
 interface User {
     id: number;
@@ -35,7 +36,7 @@ const UsersPage: React.FC = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('http://localhost:3001/users', {
+            const response = await fetch(endpoints.users, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -59,7 +60,7 @@ const UsersPage: React.FC = () => {
         setError('');
 
         try {
-            const response = await fetch(`http://localhost:3001/users/${userToDelete.id}`, {
+            const response = await fetch(`${endpoints.users}/${userToDelete.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -85,7 +86,7 @@ const UsersPage: React.FC = () => {
         setCreating(true);
 
         try {
-            const response = await fetch('http://localhost:3001/users', {
+            const response = await fetch(endpoints.users, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

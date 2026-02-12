@@ -33,7 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fetch(`${API_BASE_URL}/auth/me`, {
                 headers: { 'Authorization': `Bearer ${savedToken}` }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Token inválido');
+                    return res.json();
+                })
                 .then(data => {
                     if (data.id) {
                         setUser(data);
