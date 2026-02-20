@@ -38,9 +38,10 @@ Sistema completo de gestão para laboratórios de análises ambientais. Desenvol
 ### 🔐 Segurança
 - Autenticação JWT com sessões controladas
 - **4 níveis de acesso**: Admin, Professor, Técnico, Voluntário
-- Logs de auditoria completos
+- Logs de auditoria completos (Tracking de rastreabilidade de ações)
 - Histórico de modificações por amostra
 - Controle de sessões simultâneas
+- **Veja mais detalhes estruturais no documento [SECURITY_ARCHITECTURE.md](./SECURITY_ARCHITECTURE.md)**
 
 ### 📱 Responsivo
 - Interface adaptada para **desktop e mobile**
@@ -53,17 +54,17 @@ Sistema completo de gestão para laboratórios de análises ambientais. Desenvol
 
 ```
 Lab-LIMS/
-├── backend/           # API Node.js + Express
-│   ├── app.js         # Servidor principal
-│   ├── lims.db        # Banco SQLite
+├── backend/           # API Node.js + Express (banco via better-sqlite3)
+│   ├── app.js         # Servidor principal (Rotas e Migrations)
+│   ├── lims.db        # Banco SQLite em modo WAL
 │   └── .env           # Configurações
 │
-└── frontend/          # React + TypeScript + Vite
+└── frontend/          # React + TypeScript + Vite + TailwindCSS
     ├── src/
     │   ├── pages/     # Páginas da aplicação
     │   ├── components/# Componentes reutilizáveis
-    │   ├── config/    # Configurações do laboratório
-    │   └── contexts/  # AuthContext
+    │   ├── config/    # Configurações do laboratório (labConfig.ts)
+    │   └── contexts/  # Contextos globais (AuthContext)
     └── dist/          # Build de produção
 ```
 
@@ -111,7 +112,16 @@ npm run dev
 
 ## 🐧 Instalação em Ubuntu Server
 
-Veja o guia completo em [INSTALL_UBUNTU.md](./INSTALL_UBUNTU.md)
+Veja o guia completo configurado com Nginx, HTTPS e PM2 em: [INSTALL_UBUNTU.md](./INSTALL_UBUNTU.md)
+
+---
+
+## 🌐 Exposição Externa de Rede
+
+O projeto contém templates de configuração para expor o LIMS de forma segura na internet utilizando **Cloudflare Tunnels**, que não requer a abertura de portas no roteador:
+
+- `tunnel_fragment.yml`: Configura o acesso com subdomínios distintos para frontend e API (ex: `lims.admin.com` e `api.admin.com`).
+- `tunnel_single_domain.yml`: Configura o frontend e a API usando o mesmo domínio, filtrado por "path-based routing" (tráfego `/api/*` roteado para a API).
 
 ---
 
