@@ -110,7 +110,8 @@ const ALLOWED_COLUMNS = [
   'benzeno', 'tolueno', 'etilbenzeno', 'xilenosTotais',
 
   'params', // Coluna JSON para parâmetros dinâmicos (legado)
-  'created_at'
+  'created_at',
+  'reference_standard_id'
 ];
 
 // --- MIGRAÇÃO AUTOMÁTICA DE ESQUEMA ---
@@ -242,7 +243,33 @@ const migration = () => {
     )
   `).run();
 
-  // 7. Adicionar coluna uuid se não existir (para migrations antigas)
+  // 7. Tabelas de Normas de Referência
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS reference_standards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS reference_standard_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      standard_id INTEGER NOT NULL REFERENCES reference_standards(id) ON DELETE CASCADE,
+      parameter_key TEXT NOT NULL,
+      condition_type TEXT NOT NULL,
+      min_value REAL,
+      max_value REAL,
+      expected_text TEXT,
+      display_reference TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  // 8. Adicionar coluna uuid se não existir (para migrations antigas)
   const columns = db.prepare("PRAGMA table_info(amostras)").all();
   const columnNames = columns.map(c => c.name);
 
@@ -276,44 +303,44 @@ const migration = () => {
 
     // Recria a tabela sem UNIQUE em codigo
     db.prepare(`
-      CREATE TABLE amostras (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        uuid TEXT UNIQUE,
-        codigo TEXT,
-        cliente TEXT,
-        pontoColeta TEXT,
-        matriz TEXT,
-        dataColeta TEXT,
-        status TEXT DEFAULT 'Aguardando',
-        observacoes TEXT,
-        analysesPlanned TEXT,
-        analysesCompleted TEXT,
-        temperatura TEXT, ph TEXT, turbidez TEXT, condutividade TEXT, std TEXT,
-        cloreto TEXT, cloroResidual TEXT, corAparente TEXT, ferroTotal TEXT, trihalometanos TEXT,
-        od TEXT, oleosGraxas TEXT, salinidade TEXT, sts TEXT, corVerdadeira TEXT,
-        dbo TEXT, dqo TEXT, nNitrato TEXT, nNitrito TEXT, nAmoniacal TEXT,
-        sulfato TEXT, fosforoTotal TEXT, alcalinidade TEXT, sst TEXT, ssv TEXT, solidosSedimentaveis TEXT,
-        coliformesTotais TEXT, coliformesTermotolerantes TEXT, escherichiaColi TEXT, bacteriasHeterotroficas TEXT,
-        aluminio TEXT, bario TEXT, cadmio TEXT, chumbo TEXT, cobre TEXT, niquel TEXT,
-        cromo TEXT, ferro TEXT, manganes TEXT, sodio TEXT, zinco TEXT,
-        benzeno TEXT, tolueno TEXT, etilbenzeno TEXT, xilenosTotais TEXT,
-        params TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
+      CREATE TABLE amostras(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE,
+    codigo TEXT,
+    cliente TEXT,
+    pontoColeta TEXT,
+    matriz TEXT,
+    dataColeta TEXT,
+    status TEXT DEFAULT 'Aguardando',
+    observacoes TEXT,
+    analysesPlanned TEXT,
+    analysesCompleted TEXT,
+    temperatura TEXT, ph TEXT, turbidez TEXT, condutividade TEXT, std TEXT,
+    cloreto TEXT, cloroResidual TEXT, corAparente TEXT, ferroTotal TEXT, trihalometanos TEXT,
+    od TEXT, oleosGraxas TEXT, salinidade TEXT, sts TEXT, corVerdadeira TEXT,
+    dbo TEXT, dqo TEXT, nNitrato TEXT, nNitrito TEXT, nAmoniacal TEXT,
+    sulfato TEXT, fosforoTotal TEXT, alcalinidade TEXT, sst TEXT, ssv TEXT, solidosSedimentaveis TEXT,
+    coliformesTotais TEXT, coliformesTermotolerantes TEXT, escherichiaColi TEXT, bacteriasHeterotroficas TEXT,
+    aluminio TEXT, bario TEXT, cadmio TEXT, chumbo TEXT, cobre TEXT, niquel TEXT,
+    cromo TEXT, ferro TEXT, manganes TEXT, sodio TEXT, zinco TEXT,
+    benzeno TEXT, tolueno TEXT, etilbenzeno TEXT, xilenosTotais TEXT,
+    params TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
     `).run();
 
     // Restaura os dados
     if (allData.length > 0) {
       const insertStmt = db.prepare(`
-        INSERT INTO amostras (id, uuid, codigo, cliente, pontoColeta, matriz, dataColeta, status, observacoes,
-                             analysesPlanned, analysesCompleted, temperatura, ph, turbidez, condutividade, std,
-                             cloreto, cloroResidual, corAparente, ferroTotal, trihalometanos, od, oleosGraxas,
-                             salinidade, sts, corVerdadeira, dbo, dqo, nNitrato, nNitrito, nAmoniacal, sulfato,
-                             fosforoTotal, alcalinidade, sst, ssv, solidosSedimentaveis, coliformesTotais,
-                             coliformesTermotolerantes, escherichiaColi, bacteriasHeterotroficas, aluminio,
-                             bario, cadmio, chumbo, cobre, niquel, cromo, ferro, manganes, sodio, zinco,
-                             benzeno, tolueno, etilbenzeno, xilenosTotais, params, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO amostras(id, uuid, codigo, cliente, pontoColeta, matriz, dataColeta, status, observacoes,
+      analysesPlanned, analysesCompleted, temperatura, ph, turbidez, condutividade, std,
+      cloreto, cloroResidual, corAparente, ferroTotal, trihalometanos, od, oleosGraxas,
+      salinidade, sts, corVerdadeira, dbo, dqo, nNitrato, nNitrito, nAmoniacal, sulfato,
+      fosforoTotal, alcalinidade, sst, ssv, solidosSedimentaveis, coliformesTotais,
+      coliformesTermotolerantes, escherichiaColi, bacteriasHeterotroficas, aluminio,
+      bario, cadmio, chumbo, cobre, niquel, cromo, ferro, manganes, sodio, zinco,
+      benzeno, tolueno, etilbenzeno, xilenosTotais, params, created_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       allData.forEach(row => {
@@ -344,7 +371,7 @@ const migration = () => {
       try {
         db.prepare(`ALTER TABLE amostras ADD COLUMN ${col} TEXT`).run();
       } catch (e) {
-        console.error(`Erro ao adicionar ${col}:`, e.message);
+        console.error(`Erro ao adicionar ${col}: `, e.message);
       }
     }
   });
@@ -358,15 +385,17 @@ migration();
 // Disponibiliza DB para rotas
 app.locals.db = db;
 
-// --- ROTAS DE AUTENTICAÇÃO ---
+// --- ROTAS DE AUTENTICAÇÃO E ADMIN ---
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const referenceStandardsRoutes = require('./routes/referenceStandards');
 const { requireAuth, requireRole } = require('./middleware/auth');
 
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
 app.use('/admin', adminRoutes);
+app.use('/reference-standards', referenceStandardsRoutes);
 
 // Cria primeiro usuário ADMIN se não existir nenhum
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -375,9 +404,9 @@ if (userCount === 0) {
   const defaultPassword = hashPassword('admin123');
 
   db.prepare(`
-    INSERT INTO users (email, password_hash, role, full_name, must_change_password)
-    VALUES (?, ?, ?, ?, ?)
-  `).run('admin@lab.com', defaultPassword, 'ADMIN', 'Administrador', 1);
+    INSERT INTO users(email, password_hash, role, full_name, must_change_password)
+    VALUES(?, ?, ?, ?, ?)
+      `).run('admin@lab.com', defaultPassword, 'ADMIN', 'Administrador', 1);
 
   console.log('');
   console.log('🔑 ========================================');
@@ -401,7 +430,7 @@ app.get('/amostras', requireAuth, (req, res) => {
 
     if (busca) {
       sql += ' WHERE (codigo LIKE ? OR cliente LIKE ? OR status LIKE ?)';
-      const term = `%${busca}%`;
+      const term = `% ${busca} % `;
       params.push(term, term, term);
     }
 
@@ -500,9 +529,9 @@ app.post('/amostras', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCNICO')
     const analysesCompStr = '[]'; // Inicia vazio
 
     const stmt = db.prepare(`
-      INSERT INTO amostras (uuid, codigo, cliente, pontoColeta, matriz, dataColeta, status, analysesPlanned, analysesCompleted)
-      VALUES (?, ?, ?, ?, ?, ?, 'Aguardando', ?, ?)
-    `);
+      INSERT INTO amostras(uuid, codigo, cliente, pontoColeta, matriz, dataColeta, status, analysesPlanned, analysesCompleted)
+      VALUES(?, ?, ?, ?, ?, ?, 'Aguardando', ?, ?)
+      `);
 
     const info = stmt.run(uuid, codigo, cliente, pontoColeta, matriz, dataColeta, analysesPlanStr, analysesCompStr);
 
@@ -555,21 +584,21 @@ app.patch('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCN
       newParams = updates.resultados;
     }
 
-    const fields = keys.map(key => `${key} = ?`).join(', ');
+    const fields = keys.map(key => `${key} = ? `).join(', ');
     const values = keys.map(key => updates[key]);
     values.push(id);
 
-    const stmt = db.prepare(`UPDATE amostras SET ${fields} WHERE id = ?`);
+    const stmt = db.prepare(`UPDATE amostras SET ${fields} WHERE id = ? `);
     const info = stmt.run(...values);
 
     if (info.changes === 0) return res.status(404).json({ error: 'Amostra não encontrada' });
 
     // === REGISTRAR MODIFICAÇÕES ===
     const logModification = db.prepare(`
-      INSERT INTO sample_modifications 
-        (sample_id, sample_codigo, user_id, user_email, user_name, field_name, field_label, old_value, new_value, modification_type, ip_address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      INSERT INTO sample_modifications
+    (sample_id, sample_codigo, user_id, user_email, user_name, field_name, field_label, old_value, new_value, modification_type, ip_address)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
     // Buscar nome do usuário
     const userInfo = db.prepare('SELECT full_name FROM users WHERE id = ?').get(req.user.id);
@@ -653,7 +682,7 @@ app.get('/amostras/:id/history', requireAuth, (req, res) => {
     const history = db.prepare(`
       SELECT * FROM sample_modifications 
       WHERE sample_id = ?
-      ORDER BY timestamp DESC
+    ORDER BY timestamp DESC
     `).all(id);
 
     res.json(history);
@@ -711,7 +740,7 @@ app.get('/amostras/modifications/all', requireAuth, requireRole('ADMIN', 'PROFES
       ${whereClause}
       ORDER BY timestamp DESC
       LIMIT ? OFFSET ?
-    `;
+      `;
 
     const modifications = db.prepare(dataQuery).all(...params, parseInt(limit), offset);
 
@@ -754,9 +783,9 @@ app.get('/dashboard/by-matrix', requireAuth, (req, res) => {
     const data = db.prepare(`
       SELECT 
         matriz,
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'Concluído' THEN 1 ELSE 0 END) as concluidas,
-        SUM(CASE WHEN status = 'Em Análise' THEN 1 ELSE 0 END) as emAnalise
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'Concluído' THEN 1 ELSE 0 END) as concluidas,
+    SUM(CASE WHEN status = 'Em Análise' THEN 1 ELSE 0 END) as emAnalise
       FROM amostras
       WHERE matriz IS NOT NULL AND matriz != ''
       GROUP BY matriz
@@ -780,7 +809,7 @@ app.get('/dashboard/timeline', requireAuth, (req, res) => {
     const data = db.prepare(`
       SELECT 
         DATE(dataColeta) as date,
-        COUNT(*) as count
+    COUNT(*) as count
       FROM amostras
       WHERE dataColeta >= DATE('now', '-30 days')
       GROUP BY DATE(dataColeta)
@@ -826,5 +855,5 @@ app.get('/dashboard/top-analyses', requireAuth, (req, res) => {
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0'; // Permite acesso de outros dispositivos na rede
 app.listen(PORT, HOST, () => {
-  console.log(`✅ Backend (Híbrido) rodando em http://${HOST}:${PORT}`);
+  console.log(`✅ Backend(Híbrido) rodando em http://${HOST}:${PORT}`);
 });

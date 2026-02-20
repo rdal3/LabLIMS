@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
     Shield, Activity, Users, Beaker, Database,
     History, LogOut, AlertTriangle, CheckCircle, Clock,
-    TrendingUp, BarChart3, RefreshCw, ChevronRight, X, FileEdit
+    TrendingUp, BarChart3, RefreshCw, ChevronRight, X, FileEdit, BookOpen
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../services/api';
@@ -12,8 +12,9 @@ import UsersManagementPanel from '../components/admin/UsersManagementPanel';
 import ParametersPanel from '../components/admin/ParametersPanel';
 import SystemStatsPanel from '../components/admin/SystemStatsPanel';
 import SampleModificationsPanel from '../components/admin/SampleModificationsPanel';
+import ReferenceStandardsPanel from '../components/admin/ReferenceStandardsPanel';
 
-type TabType = 'overview' | 'audit' | 'modifications' | 'sessions' | 'users' | 'parameters' | 'stats';
+type TabType = 'overview' | 'audit' | 'modifications' | 'sessions' | 'users' | 'parameters' | 'stats' | 'standards';
 
 interface SystemStats {
     users: { total: number; active: number; inactive: number };
@@ -58,6 +59,7 @@ const AdminPanelPage: React.FC = () => {
         { id: 'modifications' as TabType, label: 'Modificações Amostras', icon: FileEdit },
         { id: 'sessions' as TabType, label: 'Sessões Ativas', icon: LogOut },
         { id: 'users' as TabType, label: 'Usuários', icon: Users },
+        { id: 'standards' as TabType, label: 'Normas e Limites', icon: BookOpen },
         { id: 'parameters' as TabType, label: 'Parâmetros', icon: Beaker },
         { id: 'stats' as TabType, label: 'Estatísticas', icon: TrendingUp },
     ];
@@ -76,6 +78,8 @@ const AdminPanelPage: React.FC = () => {
                 return <UsersManagementPanel />;
             case 'parameters':
                 return <ParametersPanel />;
+            case 'standards':
+                return <ReferenceStandardsPanel />;
             case 'stats':
                 return <SystemStatsPanel />;
             default:

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { X, Printer, FileText, Beaker } from 'lucide-react';
+import { X, Printer, FileText, Beaker, Loader2 } from 'lucide-react';
 import { LAB_PARAMS } from '../config/labConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../services/api';
+import type { ReferenceStandard } from '../utils/referenceValidator';
+import { evaluateRule } from '../utils/referenceValidator';
 
 interface Sample {
     id: number;
@@ -25,7 +29,9 @@ interface ReportModalProps {
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allSamples }) => {
+    const { token } = useAuth();
     const [reportType, setReportType] = useState<'single' | 'batch'>('single');
+    const [isGenerating, setIsGenerating] = useState(false);
 
     if (!isOpen || !sample) return null;
 
@@ -64,39 +70,76 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
         return new Date(dateStr).toLocaleDateString('pt-BR');
     };
 
-    const handlePrint = () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
+    const handlePrint = async () => {
+        setIsGenerating(true);
+        try {
+            // Fetch standards for all samples in the report
+            const standardIds = [...new Set(samplesToReport.map(s => s.reference_standard_id).filter(Boolean))];
+            const standardsMap: Record<number, ReferenceStandard> = {};
 
-        const reportHtml = samplesToReport.map((s, idx) => {
-            const planned = s.analysesPlanned || [];
-            const completed = s.analysesCompleted || [];
-            const params = s.params || {};
-            // Agrupar parâmetros por categoria
-            const paramsByCategory: Record<string, { param: any; value: any; planned: boolean; completed: boolean }[]> = {};
-            planned.forEach(paramId => {
-                const paramInfo = getParamInfo(paramId);
-                if (paramInfo) {
-                    const category = paramInfo.category;
-                    if (!paramsByCategory[category]) paramsByCategory[category] = [];
-
-                    // Busca valor - primeiro no params (JSON), depois diretamente na amostra
-                    let value = params[paramId] ?? s[paramId];
-
-                    paramsByCategory[category].push({
-                        param: paramInfo,
-                        value: value,
-                        planned: true,
-                        completed: completed.includes(paramId) || (value !== undefined && value !== null && value !== '')
-                    });
+            for (const id of standardIds) {
+                const res = await fetch(`${API_BASE_URL}/reference-standards/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    standardsMap[id as number] = await res.json();
                 }
-            });
+            }
 
-            const totalPlanned = planned.length;
-            const totalCompleted = Object.values(paramsByCategory).flat().filter(p => p.completed).length;
-            const progressPercent = totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0;
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert("Por favor, permita pop-ups para imprimir o relatório.");
+                setIsGenerating(false);
+                return;
+            }
 
-            return `
+            const reportHtml = samplesToReport.map((s, idx) => {
+                const standard = s.reference_standard_id ? standardsMap[s.reference_standard_id] : null;
+
+                const planned = s.analysesPlanned || [];
+                const completed = s.analysesCompleted || [];
+                const params = s.params || {};
+
+                // Agrupar parâmetros por categoria
+                const paramsByCategory: Record<string, { param: any; value: any; planned: boolean; completed: boolean; rule?: any; passed?: boolean | null }[]> = {};
+
+                let conformityFailCount = 0;
+                let evaluatedCount = 0;
+
+                planned.forEach(paramId => {
+                    const paramInfo = getParamInfo(paramId);
+                    if (paramInfo) {
+                        const category = paramInfo.category;
+                        if (!paramsByCategory[category]) paramsByCategory[category] = [];
+
+                        let value = params[paramId] ?? s[paramId];
+                        const isCompleted = completed.includes(paramId) || (value !== undefined && value !== null && value !== '');
+
+                        // Validação contra norma
+                        const rule = standard?.rules?.find(r => r.parameter_key === paramId);
+                        let passed: boolean | null = null;
+                        if (isCompleted && rule) {
+                            passed = evaluateRule(value, rule);
+                            evaluatedCount++;
+                            if (passed === false) conformityFailCount++;
+                        }
+
+                        paramsByCategory[category].push({
+                            param: paramInfo,
+                            value: value,
+                            planned: true,
+                            completed: isCompleted,
+                            rule: rule,
+                            passed: passed
+                        });
+                    }
+                });
+
+                const totalPlanned = planned.length;
+                const totalCompleted = Object.values(paramsByCategory).flat().filter(p => p.completed).length;
+                const progressPercent = totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0;
+
+                return `
                 <div class="sample-report ${idx > 0 ? 'page-break' : ''}">
                     <!-- Cabeçalho -->
                     <div class="header">
@@ -142,6 +185,17 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                             <div class="progress-fill" style="width: ${progressPercent}%"></div>
                         </div>
                     </div>
+                    
+                    ${standard ? `
+                    <div class="conformity-section ${conformityFailCount === 0 && evaluatedCount > 0 ? 'conformity-pass' : conformityFailCount > 0 ? 'conformity-fail' : ''}">
+                        <h3>Conclusão de Conformidade</h3>
+                        <p>Amostra avaliada segundo os limites da norma: <strong>${standard.name}</strong></p>
+                        ${evaluatedCount === 0 ? '<p>Nenhum parâmetro avaliado ainda.</p>' :
+                            conformityFailCount === 0 ? '<p class="pass-msg">Amostra <strong>EM CONFORMIDADE</strong> com a norma de referência para os parâmetros analisados.</p>' :
+                                `<p class="fail-msg">Amostra <strong>FORA DOS PADRÕES</strong> (Reprovada em ${conformityFailCount} parâmetro(s)).</p>`
+                        }
+                    </div>
+                    ` : ''}
 
                     <!-- Resultados por Categoria -->
                     ${Object.entries(paramsByCategory).map(([category, items]) => `
@@ -151,22 +205,24 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                                 <thead>
                                     <tr>
                                         <th>Parâmetro</th>
-                                        <th>Valor</th>
+                                        <th>Valor Obtido</th>
                                         <th>Unidade</th>
-                                        <th>Status</th>
+                                        ${standard ? '<th>V.M.P (Referência)</th>' : ''}
+                                        <th>Status do Laudo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${items.map(item => `
                                         <tr class="${item.completed ? '' : 'pending'}">
                                             <td>${item.param.label}</td>
-                                            <td class="value">${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '<span class="no-value">-</span>'}</td>
+                                            <td class="value ${item.passed === false ? 'fail-value' : ''}">${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '<span class="no-value">-</span>'}</td>
                                             <td class="unit">${item.param.unit || '-'}</td>
+                                            ${standard ? `<td class="reference-val">${item.rule?.display_reference || item.rule?.expected_text || (item.rule?.condition_type === 'MAX' ? 'Máx ' + item.rule.max_value : item.rule?.condition_type === 'MIN' ? 'Mín ' + item.rule.min_value : item.rule?.condition_type === 'RANGE' ? item.rule.min_value + ' - ' + item.rule.max_value : '-')}</td>` : ''}
                                             <td class="status-cell">
                                                 ${item.completed
-                    ? '<span class="status-badge done">✓ Concluído</span>'
-                    : '<span class="status-badge pending">⏳ Pendente</span>'
-                }
+                                ? (item.passed === false ? '<span class="status-badge fail">Fora do Padrão</span>' : '<span class="status-badge done">✓ OK</span>')
+                                : '<span class="status-badge pending">⏳ Pendente</span>'
+                            }
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -187,9 +243,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                     </div>
                 </div>
             `;
-        }).join('');
+            }).join('');
 
-        printWindow.document.write(`
+            printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
@@ -370,10 +426,47 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                         background: #dcfce7;
                         color: #166534;
                     }
+                    .status-badge.fail {
+                        background: #fee2e2;
+                        color: #b91c1c;
+                    }
                     .status-badge.pending {
                         background: #fef3c7;
                         color: #92400e;
                     }
+                    .fail-value {
+                        color: #b91c1c;
+                        background: #fee2e2;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                    }
+                    .reference-val {
+                        font-size: 9pt;
+                        color: #64748b;
+                    }
+
+                    /* Conformity Section */
+                    .conformity-section {
+                        margin-bottom: 25px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                    }
+                    .conformity-section h3 {
+                        font-size: 11pt;
+                        margin-bottom: 5px;
+                    }
+                    .conformity-pass {
+                        background: #ecfdf5;
+                        border-color: #a7f3d0;
+                    }
+                    .conformity-fail {
+                        background: #fef2f2;
+                        border-color: #fecaca;
+                    }
+                    .pass-msg { color: #059669; }
+                    .fail-msg { color: #dc2626; }
 
                     /* Footer */
                     .footer {
@@ -409,7 +502,13 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
             </body>
             </html>
         `);
-        printWindow.document.close();
+            printWindow.document.close();
+        } catch (error) {
+            console.error("Erro ao gerar relatório:", error);
+            alert("Falha ao gerar o relatório. Tente novamente.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
@@ -508,10 +607,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                         </button>
                         <button
                             onClick={handlePrint}
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all"
+                            disabled={isGenerating}
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
                         >
-                            <Printer size={18} />
-                            Imprimir {samplesToReport.length > 1 ? `(${samplesToReport.length})` : ''}
+                            {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}
+                            {isGenerating ? 'Gerando...' : `Imprimir ${samplesToReport.length > 1 ? `(${samplesToReport.length})` : ''}`}
                         </button>
                     </div>
                 </div>

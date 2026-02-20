@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Loader2, TestTube2, Microscope, AlertCircle, CheckCircle2, Edit3, Atom } from 'lucide-react';
+import { X, Save, Loader2, TestTube2, Microscope, AlertCircle, CheckCircle2, Edit3, Atom, BookOpen } from 'lucide-react';
 import type { Amostra } from './DatabaseList';
-import { endpoints } from '../services/api';
+import { endpoints, API_BASE_URL } from '../services/api';
+import type { ReferenceStandard } from '../utils/referenceValidator';
+import { evaluateRule } from '../utils/referenceValidator';
 import { LAB_PARAMS } from '@/config/labConfig';
 import AnalysisSelector from './AnalysisSelector';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +21,45 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
   const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [standards, setStandards] = useState<ReferenceStandard[]>([]);
+  const [selectedStandard, setSelectedStandard] = useState<ReferenceStandard | null>(null);
+
+  useEffect(() => {
+    const fetchStandards = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/reference-standards`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) setStandards(await res.json());
+      } catch (e) { console.error(e); }
+    };
+    if (isOpen) fetchStandards();
+  }, [token, isOpen]);
+
+  useEffect(() => {
+    if (formData.reference_standard_id) {
+      const fetchRules = async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/reference-standards/${formData.reference_standard_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) setSelectedStandard(await res.json());
+        } catch (e) { console.error(e); }
+      };
+      fetchRules();
+    } else {
+      setSelectedStandard(null);
+    }
+  }, [formData.reference_standard_id, token]);
+
+  const getValidationState = (fieldId: string) => {
+    if (!selectedStandard?.rules) return null;
+    const rule = selectedStandard.rules.find(r => r.parameter_key === fieldId);
+    if (!rule) return null;
+    const val = formData[fieldId as keyof Amostra];
+    if (val === undefined || val === null || val === '') return null;
+    return evaluateRule(val, rule);
+  };
 
   // --- SAFE DATA HANDLING ---
   // Tenta pegar dataColeta (padrão novo) ou data_coleta (legado)
@@ -198,6 +239,29 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
             Gerenciar Análises ({formData.analysesPlanned?.length || 0} planejadas)
           </button>
 
+          {/* Seleção de Norma de Referência */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div className="bg-violet-100 text-violet-600 p-2 rounded-lg shrink-0">
+              <BookOpen size={20} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
+                Norma de Referência
+              </label>
+              <select
+                name="reference_standard_id"
+                value={formData.reference_standard_id || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-violet-500 outline-none"
+              >
+                <option value="">Nenhuma norma selecionada (Sem validação)</option>
+                {standards.map(std => (
+                  <option key={std.id} value={std.id}>{std.name} {std.category ? `(${std.category})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {(() => {
             const planned = formData.analysesPlanned || [];
             if (planned.length === 0) {
@@ -234,29 +298,39 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-6">
-                      {grouped.fisicoq.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                            {field.label}
-                          </label>
-                          <div className="relative group">
-                            <input
-                              type="number"
-                              step="0.01"
-                              name={field.id}
-                              value={formData[field.id] || ''}
-                              onChange={handleChange}
-                              placeholder="--"
-                              className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            />
-                            {field.unit && (
-                              <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
-                                {field.unit}
-                              </span>
-                            )}
+                      {grouped.fisicoq.map((field) => {
+                        const isValid = getValidationState(field.id);
+                        const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
+                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                              'border-slate-200 focus:ring-blue-500'
+                          }`;
+
+                        return (
+                          <div key={field.id}>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex justify-between">
+                              <span>{field.label}</span>
+                              {isValid === false && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={10} /> FORA DO PADRÃO</span>}
+                              {isValid === true && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10} /> OK</span>}
+                            </label>
+                            <div className="relative group">
+                              <input
+                                type="number"
+                                step="0.01"
+                                name={field.id}
+                                value={(formData as any)[field.id] || ''}
+                                onChange={handleChange}
+                                placeholder="--"
+                                className={inputClasses}
+                              />
+                              {field.unit && (
+                                <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                                  {field.unit}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -272,31 +346,41 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {grouped.micro.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                            {field.label}
-                          </label>
-                          <div className="relative">
-                            <select
-                              name={field.id}
-                              value={formData[field.id] || ''}
-                              onChange={handleChange}
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
-                            >
-                              <option value="">Selecione...</option>
-                              {field.options?.map(opt => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                            <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
-                              <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
+                      {grouped.micro.map((field) => {
+                        const isValid = getValidationState(field.id);
+                        const inputClasses = `w-full px-3 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all appearance-none cursor-pointer ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
+                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                              'border-slate-200 focus:ring-purple-500'
+                          }`;
+
+                        return (
+                          <div key={field.id}>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex justify-between">
+                              <span>{field.label}</span>
+                              {isValid === false && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={10} /> FORA DO PADRÃO</span>}
+                              {isValid === true && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10} /> OK</span>}
+                            </label>
+                            <div className="relative">
+                              <select
+                                name={field.id}
+                                value={(formData as any)[field.id] || ''}
+                                onChange={handleChange}
+                                className={inputClasses}
+                              >
+                                <option value="">Selecione...</option>
+                                {field.options?.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -312,29 +396,39 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-6">
-                      {grouped.metais.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                            {field.label}
-                          </label>
-                          <div className="relative group">
-                            <input
-                              type="number"
-                              step="0.001"
-                              name={field.id}
-                              value={formData[field.id] || ''}
-                              onChange={handleChange}
-                              placeholder="--"
-                              className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
-                            />
-                            {field.unit && (
-                              <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
-                                {field.unit}
-                              </span>
-                            )}
+                      {grouped.metais.map((field) => {
+                        const isValid = getValidationState(field.id);
+                        const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
+                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                              'border-slate-200 focus:ring-amber-500'
+                          }`;
+
+                        return (
+                          <div key={field.id}>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex justify-between">
+                              <span>{field.label}</span>
+                              {isValid === false && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={10} /> FORA DO PADRÃO</span>}
+                              {isValid === true && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10} /> OK</span>}
+                            </label>
+                            <div className="relative group">
+                              <input
+                                type="number"
+                                step="0.001"
+                                name={field.id}
+                                value={(formData as any)[field.id] || ''}
+                                onChange={handleChange}
+                                placeholder="--"
+                                className={inputClasses}
+                              />
+                              {field.unit && (
+                                <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                                  {field.unit}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -350,29 +444,39 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-2 gap-x-6 gap-y-6">
-                      {grouped.btex.map((field) => (
-                        <div key={field.id}>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
-                            {field.label}
-                          </label>
-                          <div className="relative group">
-                            <input
-                              type="number"
-                              step="0.001"
-                              name={field.id}
-                              value={formData[field.id] || ''}
-                              onChange={handleChange}
-                              placeholder="--"
-                              className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
-                            />
-                            {field.unit && (
-                              <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
-                                {field.unit}
-                              </span>
-                            )}
+                      {grouped.btex.map((field) => {
+                        const isValid = getValidationState(field.id);
+                        const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
+                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                              'border-slate-200 focus:ring-red-500'
+                          }`;
+
+                        return (
+                          <div key={field.id}>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex justify-between">
+                              <span>{field.label}</span>
+                              {isValid === false && <span className="text-red-500 flex items-center gap-1"><AlertCircle size={10} /> FORA DO PADRÃO</span>}
+                              {isValid === true && <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10} /> OK</span>}
+                            </label>
+                            <div className="relative group">
+                              <input
+                                type="number"
+                                step="0.001"
+                                name={field.id}
+                                value={(formData as any)[field.id] || ''}
+                                onChange={handleChange}
+                                placeholder="--"
+                                className={inputClasses}
+                              />
+                              {field.unit && (
+                                <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">
+                                  {field.unit}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
