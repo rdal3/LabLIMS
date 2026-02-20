@@ -5,6 +5,9 @@ export interface LabParam {
     unit?: string;
     options?: string[]; // Para selects
     isColumn?: boolean; // Se true, salva em coluna SQL dedicada. Se false, salva no JSON 'params'
+    method?: string;
+    ld?: string;
+    lq?: string;
 }
 
 export interface AnalyticalMatrix {

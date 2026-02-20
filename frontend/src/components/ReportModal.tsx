@@ -31,6 +31,7 @@ interface ReportModalProps {
 const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allSamples }) => {
     const { token } = useAuth();
     const [reportType, setReportType] = useState<'single' | 'batch'>('single');
+    const [reportFormat, setReportFormat] = useState<'internal' | 'technical'>('technical');
     const [isGenerating, setIsGenerating] = useState(false);
 
     if (!isOpen || !sample) return null;
@@ -86,6 +87,18 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                 }
             }
 
+            // Fetch dynamic methodologies
+            const methodsRes = await fetch(`${API_BASE_URL}/parameter-methods`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            let methodsMap: Record<string, any> = {};
+            if (methodsRes.ok) {
+                const methodsData = await methodsRes.json();
+                methodsData.forEach((m: any) => {
+                    methodsMap[m.parameter_key] = m;
+                });
+            }
+
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
                 alert("Por favor, permita pop-ups para imprimir o relatório.");
@@ -101,7 +114,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                 const params = s.params || {};
 
                 // Agrupar parâmetros por categoria
-                const paramsByCategory: Record<string, { param: any; value: any; planned: boolean; completed: boolean; rule?: any; passed?: boolean | null }[]> = {};
+                const paramsByCategory: Record<string, { param: any; value: any; planned: boolean; completed: boolean; rule?: any; passed?: boolean | null; methodInfo?: any }[]> = {};
 
                 let conformityFailCount = 0;
                 let evaluatedCount = 0;
@@ -130,7 +143,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                             planned: true,
                             completed: isCompleted,
                             rule: rule,
-                            passed: passed
+                            passed: passed,
+                            methodInfo: methodsMap[paramId]
                         });
                     }
                 });
@@ -138,6 +152,155 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                 const totalPlanned = planned.length;
                 const totalCompleted = Object.values(paramsByCategory).flat().filter(p => p.completed).length;
                 const progressPercent = totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0;
+
+                if (reportFormat === 'technical') {
+                    return `
+                        <div class="technical-report ${idx > 0 ? 'page-break' : ''}">
+                            <div class="header-tech">
+                                <div class="logo-area">
+                                    <h2 style="color: #0ea5e9; margin: 0; font-size: 24px; font-family: sans-serif;">Lab<span style="color: #0284c7;">Água</span></h2>
+                                </div>
+                                <div class="header-titles">
+                                    <div class="anexo-title">ANEXO B - LAUDOS</div>
+                                    <div class="report-title">${s.matriz || 'LAUDO'} ${s.pontoColeta ? `(${s.pontoColeta})` : ''}</div>
+                                </div>
+                            </div>
+
+                            <table class="tech-table">
+                                <thead class="tech-thead-title">
+                                    <tr><th colspan="2">Identificação Conta</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Cliente:</strong> ${s.cliente || '-'}</td>
+                                        <td><strong>CNPJ/CPF:</strong> -</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Contato:</strong> -</td>
+                                        <td><strong>Telefone:</strong> -</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2"><strong>Endereço:</strong> -</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <table class="tech-table" style="margin-top: 15px;">
+                                <thead class="tech-thead-title">
+                                    <tr><th colspan="2">${s.codigo} (${s.pontoColeta || s.matriz || 'Amostra'})</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="2"><strong>Tipo de Amostra:</strong> ${s.matriz || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Data Coleta:</strong> ${formatDate(s.dataColeta)}</td>
+                                        <td><strong>Data Recebimento:</strong> ${formatDate(s.created_at)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Atividade de Coleta:</strong> Monitoramento</td>
+                                        <td><strong>Metodologia de Coleta:</strong> Conforme as Referências metodológicas descritas em "Notas".</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <table class="tech-table results-tech" style="margin-top: 15px;">
+                                <thead class="tech-thead-title">
+                                    <tr><th colspan="6">Resultados Analíticos</th></tr>
+                                    <tr class="col-headers">
+                                        <th>PARÂMETRO</th>
+                                        <th>RESULTADO</th>
+                                        <th>V.Ref.</th>
+                                        <th>Referência</th>
+                                        <th>LD</th>
+                                        <th>LQ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${Object.entries(paramsByCategory).map(([category, items]) => {
+                        if (category === 'micro') return '';
+                        return (items as any[]).map(item => `
+                                            <tr>
+                                                <td>${item.param.label} ${item.param.unit ? `(${item.param.unit})` : ''}</td>
+                                                <td class="res-center"><strong>${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '-'}</strong></td>
+                                                <td class="res-center">${standard ? (item.rule?.display_reference || item.rule?.expected_text || '-') : '-'}</td>
+                                                <td class="res-center">${item.methodInfo?.method_name || '-'}</td>
+                                                <td class="res-center">${item.methodInfo?.ld || '-'}</td>
+                                                <td class="res-center">${item.methodInfo?.lq || '-'}</td>
+                                            </tr>
+                                        `).join('');
+                    }).join('')}
+                                    
+                                    ${paramsByCategory['micro'] ? `
+                                        <tr><th colspan="6" class="tech-thead-title" style="background-color: #f1f5f9;">ANÁLISE MICROBIOLÓGICA</th></tr>
+                                        <tr class="col-headers">
+                                            <th colspan="3">PARÂMETRO</th>
+                                            <th colspan="2">RESULTADO</th>
+                                            <th>VALOR DE REFERÊNCIA</th>
+                                        </tr>
+                                        ${(paramsByCategory['micro'] as any[]).map(item => `
+                                            <tr>
+                                                <td colspan="3">${item.param.label}</td>
+                                                <td colspan="2" class="res-center"><strong>${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '-'}</strong></td>
+                                                <td class="res-center">${standard ? (item.rule?.display_reference || item.rule?.expected_text || '-') : '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    ` : ''}
+                                </tbody>
+                            </table>
+
+                            <div class="tech-notes">
+                                <div style="text-align: center; font-weight: bold; margin-bottom: 15px; font-size: 11pt;">Notas</div>
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; line-height: 1.3;">
+                                    <div style="flex: 2; padding-right: 15px;">
+                                        <strong>Referências Metodológicas:</strong><br/>
+                                        APHA/AWWA - Standard Methods for the Examination of Water and Wastewater 24ª ed. 2023.<br/>
+                                        ${Object.values(paramsByCategory).flat().map((item: any) => item.methodInfo?.method_name ? `<strong>${item.param.label}</strong> - ${item.methodInfo.method_name}` : null).filter((v, i, a) => v && a.indexOf(v) === i).join('<br/>')}
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <strong>Legendas:</strong><br/>
+                                        <strong>VMP</strong> - Valor máximo permitido<br/>
+                                        <strong>LQ</strong> - Limite de Quantificação<br/>
+                                        <strong>LD</strong> - Limite de Detecção<br/>
+                                        <strong>µS/cm</strong> - Microsiemens por centímetro<br/>
+                                        <strong>uH</strong> - Unidade Hazen<br/>
+                                        <strong>mg/L</strong> - Miligrama por Litro<br/>
+                                        <strong>uT</strong> - Unidade Nefelométrica de Turbidez<br/>
+                                        <strong>UFC/100mL</strong> - Unidade Formadora de Colônias por 100 Mililitros
+                                    </div>
+                                </div>
+                            </div>
+
+                            <table class="tech-table" style="margin-top: 25px;">
+                                <thead class="tech-thead-title">
+                                    <tr><th>Especificações</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="font-size: 10px; padding: 10px;">
+                                            As análises foram interpretadas com base nos padrões de potabilidade estabelecidos ${standard ? `na <strong>${standard.name}</strong>` : 'nas normativas vigentes'}, que regulamenta os limites de qualidade da água.
+                                        </td>
+                                    </tr>
+                                    <tr><th class="tech-thead-title" style="background: #e2e8f0;">Declaração de Conformidade</th></tr>
+                                    <tr>
+                                        <td style="font-size: 10px; padding: 10px; color: ${conformityFailCount === 0 && evaluatedCount > 0 ? '#15803d' : conformityFailCount > 0 ? '#dc2626' : '#64748b'};">
+                                            ${evaluatedCount === 0 ? 'Nenhum parâmetro avaliado ainda.' :
+                            conformityFailCount === 0 ? `Conforme ${standard?.name || 'norma'}, os parâmetros analisados para esta amostra <strong>estão em conformidade</strong> com os limites estabelecidos.` :
+                                `Conforme ${standard?.name || 'norma'}, os parâmetros analisados para esta amostra <strong>não estão em conformidade</strong> com os limites estabelecidos.`
+                        }
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="signature-block">
+                                <div class="signature-line"></div>
+                                <div class="signature-name">Responsável Técnico</div>
+                                <div class="signature-role">Químico Industrial / Coordenador de Laboratório</div>
+                            </div>
+                        </div>
+                    `;
+                }
 
                 return `
                 <div class="sample-report ${idx > 0 ? 'page-break' : ''}">
@@ -484,6 +647,77 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                         color: #3b82f6;
                     }
 
+                    /* Technical Report Styles */
+                    .technical-report {
+                        padding: 10mm 0;
+                        font-family: 'Times New Roman', Times, serif;
+                        font-size: 10pt;
+                        color: #000;
+                    }
+                    .header-tech {
+                        text-align: center;
+                        margin-bottom: 20px;
+                    }
+                    .logo-area {
+                        text-align: left;
+                        margin-bottom: 15px;
+                    }
+                    .anexo-title {
+                        color: #1e40af;
+                        font-weight: bold;
+                        font-size: 12pt;
+                        text-align: left;
+                    }
+                    .report-title {
+                        color: #1e40af;
+                        font-weight: bold;
+                        font-size: 13pt;
+                        margin-top: 5px;
+                        text-transform: uppercase;
+                    }
+                    .tech-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 10pt;
+                    }
+                    .tech-table th, .tech-table td {
+                        border: 1px solid #94a3b8;
+                        padding: 5px 8px;
+                    }
+                    .tech-thead-title th {
+                        background-color: #e2e8f0;
+                        text-align: center;
+                        font-weight: bold;
+                        padding: 8px;
+                    }
+                    .col-headers th {
+                        text-align: center;
+                        font-weight: bold;
+                        font-size: 9pt;
+                    }
+                    .res-center {
+                        text-align: center;
+                    }
+                    .tech-notes {
+                        margin-top: 25px;
+                    }
+                    .signature-block {
+                        margin-top: 60px;
+                        text-align: center;
+                    }
+                    .signature-line {
+                        width: 250px;
+                        border-bottom: 1px solid #000;
+                        margin: 0 auto 5px auto;
+                    }
+                    .signature-name {
+                        font-weight: bold;
+                        font-size: 11pt;
+                    }
+                    .signature-role {
+                        font-size: 9pt;
+                    }
+
                     @media print {
                         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     }
@@ -574,6 +808,40 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                                     Lote Completo
                                 </span>
                                 <span className="text-xs text-slate-500">{batchSamples.length} páginas</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Formato de Relatório */}
+                    <div>
+                        <label className="block font-bold text-slate-700 mb-3">
+                            Formato do Relatório
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setReportFormat('internal')}
+                                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${reportFormat === 'internal'
+                                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className={`font-bold ${reportFormat === 'internal' ? 'text-indigo-700' : 'text-slate-600'}`}>
+                                    Relatório Interno
+                                </span>
+                                <span className="text-xs text-slate-500 text-center">Para uso e controle do laboratório</span>
+                            </button>
+
+                            <button
+                                onClick={() => setReportFormat('technical')}
+                                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${reportFormat === 'technical'
+                                    ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span className={`font-bold ${reportFormat === 'technical' ? 'text-indigo-700' : 'text-slate-600'}`}>
+                                    Laudo Técnico
+                                </span>
+                                <span className="text-xs text-slate-500 text-center">Formato oficial para o cliente</span>
                             </button>
                         </div>
                     </div>

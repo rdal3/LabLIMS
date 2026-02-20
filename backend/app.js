@@ -269,7 +269,34 @@ const migration = () => {
     )
   `).run();
 
-  // 8. Adicionar coluna uuid se não existir (para migrations antigas)
+  // 8. Tabela de Clientes
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS clients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      cnpj_cpf TEXT,
+      contact_name TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  // 9. Tabela de Configurações de Parâmetros (Metodologias)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS parameter_methods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parameter_key TEXT UNIQUE NOT NULL,
+      method_name TEXT,
+      ld TEXT,
+      lq TEXT,
+      equipment TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  // 10. Adicionar coluna uuid se não existir (para migrations antigas)
   const columns = db.prepare("PRAGMA table_info(amostras)").all();
   const columnNames = columns.map(c => c.name);
 
@@ -390,12 +417,16 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const referenceStandardsRoutes = require('./routes/referenceStandards');
+const clientsRoutes = require('./routes/clients');
+const parameterMethodsRoutes = require('./routes/parameterMethods');
 const { requireAuth, requireRole } = require('./middleware/auth');
 
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
 app.use('/admin', adminRoutes);
 app.use('/reference-standards', referenceStandardsRoutes);
+app.use('/clients', clientsRoutes);
+app.use('/parameter-methods', parameterMethodsRoutes);
 
 // Cria primeiro usuário ADMIN se não existir nenhum
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;

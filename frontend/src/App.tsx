@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield } from 'lucide-react';
+import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield, Building2, Settings } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { API_BASE_URL } from './services/api';
 import { useIsMobile } from './hooks/useIsMobile';
@@ -9,6 +9,8 @@ import LoginPage from './pages/LoginPage';
 import UsersPage from './pages/UsersPage';
 import QRScannerPage from './pages/QRScannerPage';
 import AdminPanelPage from './pages/AdminPanelPage';
+import ClientsPage from './pages/ClientsPage';
+import MethodologiesPage from './pages/MethodologiesPage';
 import logoImg from './img/LabAguaLogo.png';
 import { useState } from 'react';
 
@@ -239,11 +241,17 @@ function Navigation() {
             <NavLink to="/" icon={BarChart3} label="Início" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
             <NavLink to="/scanner" icon={QrCode} label="Scanner" />
+            {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
+              <NavLink to="/clients" icon={Building2} label="Clientes" />
+            )}
             {hasRole('ADMIN', 'PROFESSOR') && (
               <NavLink to="/users" icon={Users} label="Usuários" />
             )}
             {hasRole('ADMIN') && (
-              <NavLink to="/admin" icon={Shield} label="Admin" />
+              <>
+                <NavLink to="/methodologies" icon={Settings} label="Métodos" />
+                <NavLink to="/admin" icon={Shield} label="Admin" />
+              </>
             )}
           </div>
         </nav>
@@ -269,11 +277,17 @@ function Navigation() {
             <NavLink to="/" icon={BarChart3} label="Dashboard" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
             <NavLink to="/scanner" icon={QrCode} label="Scanner" />
+            {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
+              <NavLink to="/clients" icon={Building2} label="Clientes" />
+            )}
             {hasRole('ADMIN', 'PROFESSOR') && (
               <NavLink to="/users" icon={Users} label="Usuários" />
             )}
             {hasRole('ADMIN') && (
-              <NavLink to="/admin" icon={Shield} label="Admin" />
+              <>
+                <NavLink to="/methodologies" icon={Settings} label="Metodologias" />
+                <NavLink to="/admin" icon={Shield} label="Admin" />
+              </>
             )}
 
             <div className="ml-4 pl-4 border-l border-slate-200 flex items-center gap-3">
@@ -349,7 +363,9 @@ function AppContent() {
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/amostras" element={<ProtectedRoute><AmostrasPage /></ProtectedRoute>} />
         <Route path="/scanner" element={<ProtectedRoute><QRScannerPage /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR', 'TÉCNICO']}><ClientsPage /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR']}><UsersPage /></ProtectedRoute>} />
+        <Route path="/methodologies" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR']}><MethodologiesPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requiredRoles={['ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
         <Route path="/login" element={<Navigate to="/" replace />} />
       </Routes>

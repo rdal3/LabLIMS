@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Printer, LayoutGrid, Type, Calendar, FlaskConical, Edit3, X, Copy, FileText, Tag } from 'lucide-react';
+import { API_BASE_URL } from '../services/api';
 import LabelTemplate from './LabelTemplate';
 import AnalysisSelector from './AnalysisSelector';
 import { ANALYTICAL_MATRICES } from '@/config/labConfig';
@@ -42,6 +43,26 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
   // Estado das etiquetas geradas
   const [generatedLabels, setGeneratedLabels] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Clientes do DB
+  const [dbClients, setDbClients] = useState<{ id: number, name: string }[]>([]);
+
+  React.useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/clients`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setDbClients(data);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar clientes', err);
+      }
+    };
+    fetchClients();
+  }, [token]);
 
   // Modal de impressão
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -369,11 +390,17 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
             <input
               type="text"
               name="cliente"
+              list="clientList"
               value={formData.cliente}
               onChange={handleInputChange}
               placeholder="Ex: CDP"
               className={`w-full bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
             />
+            <datalist id="clientList">
+              {dbClients.map(c => (
+                <option key={c.id} value={c.name} />
+              ))}
+            </datalist>
           </div>
 
           {/* Ponto de Coleta */}
