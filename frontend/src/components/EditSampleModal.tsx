@@ -58,7 +58,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
     if (!rule) return null;
     const val = formData[fieldId as keyof Amostra];
     if (val === undefined || val === null || val === '') return null;
-    return evaluateRule(val, rule);
+    return evaluateRule(val, rule, formData);
   };
 
   // --- SAFE DATA HANDLING ---

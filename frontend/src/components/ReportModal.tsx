@@ -4,7 +4,7 @@ import { LAB_PARAMS } from '../config/labConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../services/api';
 import type { ReferenceStandard } from '../utils/referenceValidator';
-import { evaluateRule } from '../utils/referenceValidator';
+import { evaluateRule, getDynamicDisplayReference } from '../utils/referenceValidator';
 
 interface Sample {
     id: number;
@@ -132,7 +132,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                         const rule = standard?.rules?.find(r => r.parameter_key === paramId);
                         let passed: boolean | null = null;
                         if (isCompleted && rule) {
-                            passed = evaluateRule(value, rule);
+                            passed = evaluateRule(value, rule, { ...s, ...(s.params || {}) });
                             evaluatedCount++;
                             if (passed === false) conformityFailCount++;
                         }
@@ -223,7 +223,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                                             <tr>
                                                 <td>${item.param.label} ${item.param.unit ? `(${item.param.unit})` : ''}</td>
                                                 <td class="res-center"><strong>${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '-'}</strong></td>
-                                                <td class="res-center">${standard ? (item.rule?.display_reference || item.rule?.expected_text || '-') : '-'}</td>
+                                                <td class="res-center">${standard && item.rule ? getDynamicDisplayReference(item.rule, { ...s, ...(s.params || {}) }) : '-'}</td>
                                                 <td class="res-center">${item.methodInfo?.method_name || '-'}</td>
                                                 <td class="res-center">${item.methodInfo?.ld || '-'}</td>
                                                 <td class="res-center">${item.methodInfo?.lq || '-'}</td>
@@ -242,7 +242,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                                             <tr>
                                                 <td colspan="3">${item.param.label}</td>
                                                 <td colspan="2" class="res-center"><strong>${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '-'}</strong></td>
-                                                <td class="res-center">${standard ? (item.rule?.display_reference || item.rule?.expected_text || '-') : '-'}</td>
+                                                <td class="res-center">${standard && item.rule ? getDynamicDisplayReference(item.rule, { ...s, ...(s.params || {}) }) : '-'}</td>
                                             </tr>
                                         `).join('')}
                                     ` : ''}
@@ -380,7 +380,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                                             <td>${item.param.label}</td>
                                             <td class="value ${item.passed === false ? 'fail-value' : ''}">${item.value !== undefined && item.value !== null && item.value !== '' ? item.value : '<span class="no-value">-</span>'}</td>
                                             <td class="unit">${item.param.unit || '-'}</td>
-                                            ${standard ? `<td class="reference-val">${item.rule?.display_reference || item.rule?.expected_text || (item.rule?.condition_type === 'MAX' ? 'Máx ' + item.rule.max_value : item.rule?.condition_type === 'MIN' ? 'Mín ' + item.rule.min_value : item.rule?.condition_type === 'RANGE' ? item.rule.min_value + ' - ' + item.rule.max_value : '-')}</td>` : ''}
+                                            ${standard ? `<td class="reference-val">${item.rule ? getDynamicDisplayReference(item.rule, { ...s, ...(s.params || {}) }) : '-'}</td>` : ''}
                                             <td class="status-cell">
                                                 ${item.completed
                                 ? (item.passed === false ? '<span class="status-badge fail">Fora do Padrão</span>' : '<span class="status-badge done">✓ OK</span>')
@@ -606,6 +606,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                     .reference-val {
                         font-size: 9pt;
                         color: #64748b;
+                        white-space: pre-wrap;
+                        word-break: break-word;
                     }
 
                     /* Conformity Section */
@@ -697,6 +699,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                     }
                     .res-center {
                         text-align: center;
+                        white-space: pre-wrap;
+                        word-break: break-word;
                     }
                     .tech-notes {
                         margin-top: 25px;

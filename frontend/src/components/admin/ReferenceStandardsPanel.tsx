@@ -288,6 +288,7 @@ const ReferenceStandardsPanel: React.FC = () => {
                                                         <option value="RANGE">Intervalo (-)</option>
                                                         <option value="ABSENCE">Ausência</option>
                                                         <option value="EXACT_TEXT">Texto Exato</option>
+                                                        <option value="CONDITIONAL">Condicional (Fórmula)</option>
                                                     </select>
                                                 </td>
                                                 <td className="py-2 pr-2 align-top">
@@ -302,6 +303,13 @@ const ReferenceStandardsPanel: React.FC = () => {
                                                         <input type="number" step="any" placeholder={rule.condition_type === 'MAX' ? 'Max...' : 'Min...'} className="w-full border rounded px-2 py-1 text-sm bg-white"
                                                             value={rule.condition_type === 'MAX' ? (rule.max_value ?? '') : (rule.min_value ?? '')}
                                                             onChange={e => updateRule(idx, rule.condition_type === 'MAX' ? 'max_value' : 'min_value', e.target.value ? parseFloat(e.target.value) : null)} />
+                                                    ) : rule.condition_type === 'CONDITIONAL' ? (
+                                                        <textarea
+                                                            placeholder="Ex: IF ph <= 7.5 THEN MAX 3.7"
+                                                            className="w-full border rounded px-2 py-1 text-sm bg-slate-50 font-mono resize-y min-h-[60px]"
+                                                            value={rule.expected_text || ''}
+                                                            onChange={e => updateRule(idx, 'expected_text', e.target.value)}
+                                                        />
                                                     ) : (
                                                         <input type="text" placeholder="Texto esperado..." className="w-full border rounded px-2 py-1 text-sm bg-white"
                                                             value={rule.expected_text || ''} onChange={e => updateRule(idx, 'expected_text', e.target.value)} />
@@ -309,11 +317,16 @@ const ReferenceStandardsPanel: React.FC = () => {
                                                 </td>
                                                 <td className="py-2 pr-2">
                                                     <div className="flex bg-white rounded border focus-within:ring-2 focus-within:ring-violet-500 overflow-hidden">
-                                                        <input
-                                                            className="w-full px-2 py-1 text-sm outline-none"
-                                                            placeholder={`Ex: "Ausência"`}
+                                                        <textarea
+                                                            className="w-full px-2 py-1 text-sm outline-none resize-y min-h-[32px] overflow-hidden"
+                                                            rows={1}
+                                                            placeholder={`Ex: "Ausência"\nou\n"3,7 mg/L pH ≤ 7,5\n2,0 mg/L 7,5 < pH ≤ 8,0"`}
                                                             value={rule.display_reference || ''}
-                                                            onChange={(e) => updateRule(idx, 'display_reference', e.target.value)}
+                                                            onChange={(e) => {
+                                                                e.target.style.height = 'auto';
+                                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                                                updateRule(idx, 'display_reference', e.target.value);
+                                                            }}
                                                         />
                                                         <button
                                                             onClick={() => autoFillDisplayReference(idx)}
