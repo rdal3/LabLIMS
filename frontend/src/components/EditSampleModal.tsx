@@ -301,8 +301,8 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                       {grouped.fisicoq.map((field) => {
                         const isValid = getValidationState(field.id);
                         const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
-                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
-                              'border-slate-200 focus:ring-blue-500'
+                          isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                            'border-slate-200 focus:ring-blue-500'
                           }`;
 
                         return (
@@ -349,8 +349,8 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                       {grouped.micro.map((field) => {
                         const isValid = getValidationState(field.id);
                         const inputClasses = `w-full px-3 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all appearance-none cursor-pointer ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
-                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
-                              'border-slate-200 focus:ring-purple-500'
+                          isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                            'border-slate-200 focus:ring-purple-500'
                           }`;
 
                         return (
@@ -399,8 +399,8 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                       {grouped.metais.map((field) => {
                         const isValid = getValidationState(field.id);
                         const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
-                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
-                              'border-slate-200 focus:ring-amber-500'
+                          isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                            'border-slate-200 focus:ring-amber-500'
                           }`;
 
                         return (
@@ -447,8 +447,8 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({ isOpen, amostra, onCl
                       {grouped.btex.map((field) => {
                         const isValid = getValidationState(field.id);
                         const inputClasses = `w-full pl-3 pr-10 py-2.5 bg-slate-50 border rounded-lg text-slate-900 font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isValid === true ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50 text-emerald-900' :
-                            isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
-                              'border-slate-200 focus:ring-red-500'
+                          isValid === false ? 'border-red-400 focus:ring-red-500 bg-red-50 text-red-900' :
+                            'border-slate-200 focus:ring-red-500'
                           }`;
 
                         return (

@@ -387,20 +387,21 @@ const LabelGenerator: React.FC<LabelGeneratorProps> = ({ onSamplesCreated }) => 
           {/* Cliente */}
           <div>
             <label className={`block font-bold text-slate-400 mb-1 uppercase tracking-wider ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Cliente</label>
-            <input
-              type="text"
+            <select
               name="cliente"
-              list="clientList"
               value={formData.cliente}
               onChange={handleInputChange}
-              placeholder="Ex: CDP"
-              className={`w-full bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
-            />
-            <datalist id="clientList">
+              className={`w-full bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer ${isMobile ? 'p-2 text-sm' : 'p-3 rounded-xl'}`}
+              required
+            >
+              <option value="">Selecione um cliente...</option>
               {dbClients.map(c => (
-                <option key={c.id} value={c.name} />
+                <option key={c.id} value={c.name}>{c.name}</option>
               ))}
-            </datalist>
+            </select>
+            {dbClients.length === 0 && (
+              <p className="text-xs text-amber-500 mt-1">Nenhum cliente cadastrado. Cadastre no painel de Administração.</p>
+            )}
           </div>
 
           {/* Ponto de Coleta */}

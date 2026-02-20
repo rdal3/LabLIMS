@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, X, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Save, X, BookOpen, Wand2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_BASE_URL } from '../../services/api';
 import type { ReferenceStandard, ReferenceStandardRule } from '../../utils/referenceValidator';
@@ -123,6 +123,27 @@ const ReferenceStandardsPanel: React.FC = () => {
         const newRules = [...editingRules];
         newRules[index] = { ...newRules[index], [field]: value };
         setEditingRules(newRules);
+    };
+
+    const autoFillDisplayReference = (index: number) => {
+        const rule = editingRules[index];
+        let autoText = '';
+
+        if (rule.condition_type === 'ABSENCE') {
+            autoText = 'Ausência';
+        } else if (rule.condition_type === 'EXACT_TEXT') {
+            autoText = rule.expected_text || 'Conforme';
+        } else if (rule.condition_type === 'MAX' && rule.max_value !== null && rule.max_value !== undefined) {
+            autoText = `≤ ${rule.max_value}`;
+        } else if (rule.condition_type === 'MIN' && rule.min_value !== null && rule.min_value !== undefined) {
+            autoText = `≥ ${rule.min_value}`;
+        } else if (rule.condition_type === 'RANGE' && rule.min_value !== null && rule.min_value !== undefined && rule.max_value !== null && rule.max_value !== undefined) {
+            autoText = `${rule.min_value} a ${rule.max_value}`;
+        }
+
+        if (autoText) {
+            updateRule(index, 'display_reference', autoText);
+        }
     };
 
     const removeRule = (index: number) => {
@@ -287,12 +308,21 @@ const ReferenceStandardsPanel: React.FC = () => {
                                                     )}
                                                 </td>
                                                 <td className="py-2 pr-2">
-                                                    <input
-                                                        className="w-full border rounded px-2 py-1 text-sm bg-white"
-                                                        placeholder={`Ex: "Ausência"`}
-                                                        value={rule.display_reference || ''}
-                                                        onChange={(e) => updateRule(idx, 'display_reference', e.target.value)}
-                                                    />
+                                                    <div className="flex bg-white rounded border focus-within:ring-2 focus-within:ring-violet-500 overflow-hidden">
+                                                        <input
+                                                            className="w-full px-2 py-1 text-sm outline-none"
+                                                            placeholder={`Ex: "Ausência"`}
+                                                            value={rule.display_reference || ''}
+                                                            onChange={(e) => updateRule(idx, 'display_reference', e.target.value)}
+                                                        />
+                                                        <button
+                                                            onClick={() => autoFillDisplayReference(idx)}
+                                                            title="Preencher Automático"
+                                                            className="bg-violet-100 hover:bg-violet-200 text-violet-600 px-2 flex items-center justify-center transition-colors"
+                                                        >
+                                                            <Wand2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 <td className="py-2 text-right">
                                                     <button onClick={() => removeRule(idx)} className="text-slate-400 hover:text-red-600 p-1">
