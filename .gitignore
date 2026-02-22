@@ -37,3 +37,6 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+
+# Backlog ideas
+FUTURE_IDEAS.md
