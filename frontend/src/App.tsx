@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield, Layers, Camera } from 'lucide-react';
+import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield, Layers } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { API_BASE_URL } from './services/api';
 import { useIsMobile } from './hooks/useIsMobile';
@@ -10,7 +10,6 @@ import UsersPage from './pages/UsersPage';
 import QRScannerPage from './pages/QRScannerPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import WorksheetPage from './pages/WorksheetPage';
-import FormScannerPage from './pages/FormScannerPage';
 import logoImg from './img/LabAguaLogo.png';
 import React, { useState } from 'react';
 function ChangePasswordModal({ show, onClose }: { show: boolean; onClose: () => void }) {
@@ -240,10 +239,6 @@ function Navigation() {
             <NavLink to="/" icon={BarChart3} label="Início" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
 
-            {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
-              <NavLink to="/form-scanner" icon={Camera} label="Formulário" />
-            )}
-
             <NavLink to="/scanner" icon={QrCode} label="QR Leitor" />
 
             {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
@@ -280,10 +275,6 @@ function Navigation() {
             <NavLink to="/" icon={BarChart3} label="Dashboard" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
             <NavLink to="/scanner" icon={QrCode} label="Escaneamento Rápido" />
-
-            {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
-              <NavLink to="/form-scanner" icon={Camera} label="Escanear Formulário" />
-            )}
 
             {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
               <NavLink to="/worksheet" icon={Layers} label="Mapas de Trabalho" />
@@ -369,7 +360,6 @@ function AppContent() {
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/amostras" element={<ProtectedRoute><AmostrasPage /></ProtectedRoute>} />
         <Route path="/worksheet" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR', 'TÉCNICO']}><WorksheetPage /></ProtectedRoute>} />
-        <Route path="/form-scanner" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR', 'TÉCNICO']}><FormScannerPage /></ProtectedRoute>} />
         <Route path="/scanner" element={<ProtectedRoute><QRScannerPage /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR']}><UsersPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requiredRoles={['ADMIN']}><AdminPanelPage /></ProtectedRoute>} />

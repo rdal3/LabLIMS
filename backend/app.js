@@ -38,8 +38,8 @@ const corsOptions = {
     // Permite requisições sem origin (como apps mobile ou Postman)
     if (!origin) return callback(null, true);
 
-    // Permite qualquer IP na rede local (192.168.x.x ou 10.x.x.x)
-    if (origin.match(/^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|localhost|127\.0\.0\.1)/)) {
+    // Permite qualquer IP na rede local via HTTP ou HTTPS (192.168.x.x ou 10.x.x.x)
+    if (origin.match(/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|localhost|127\.0\.0\.1)/)) {
       return callback(null, true);
     }
 
@@ -460,9 +460,9 @@ app.get('/amostras', requireAuth, (req, res) => {
     const params = [];
 
     if (busca) {
-      sql += ' WHERE (codigo LIKE ? OR cliente LIKE ? OR status LIKE ?)';
-      const term = `% ${busca} % `;
-      params.push(term, term, term);
+      sql += ' WHERE (codigo LIKE ? OR cliente LIKE ? OR status LIKE ? OR uuid LIKE ?)';
+      const term = `%${busca}%`;
+      params.push(term, term, term, term);
     }
 
     // Usa o parâmetro de ordem ou padrão DESC (mais recentes primeiro)
@@ -696,7 +696,19 @@ app.patch('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR', 'TÉCN
 // 5. DELETE - Apenas ADMIN e PROFESSOR
 app.delete('/amostras/:id', requireAuth, requireRole('ADMIN', 'PROFESSOR'), (req, res) => {
   try {
-    const info = db.prepare('DELETE FROM amostras WHERE id = ?').run(req.params.id);
+    const { id } = req.params;
+
+    // Remove dependências primeiro para evitar erro de FOREIGN KEY constraint
+    try {
+      db.prepare('DELETE FROM sample_modifications WHERE sample_id = ?').run(id);
+    } catch (e) { }
+
+    // Tabela órfã que pode ainda existir no BD do usuário com restrição de chave:
+    try {
+      db.prepare('DELETE FROM sample_analyses WHERE sample_id = ?').run(id);
+    } catch (e) { }
+
+    const info = db.prepare('DELETE FROM amostras WHERE id = ?').run(id);
     if (info.changes === 0) return res.status(404).json({ error: 'Amostra não encontrada' });
     res.json({ ok: true });
   } catch (error) {

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import ReactDOMServer from 'react-dom/server';
+import QRCode from 'react-qr-code';
 import { X, Printer, FileText, Beaker, Loader2 } from 'lucide-react';
 import { LAB_PARAMS } from '../config/labConfig';
 import { useAuth } from '../contexts/AuthContext';
@@ -311,9 +313,16 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                             <p class="subtitle">Laboratório de Análises Ambientais</p>
                         </div>
                         <div class="header-right">
-                            <div class="sample-code">${s.codigo}</div>
-                            <div class="status ${s.status === 'Concluído' ? 'status-done' : s.status === 'Em Análise' ? 'status-progress' : 'status-pending'}">
-                                ${s.status}
+                            <div style="display: flex; gap: 15px; align-items: flex-end;">
+                                <div style="width: 25mm; height: 25mm;">
+                                    ${ReactDOMServer.renderToString(<QRCode value={s.uuid || s.codigo} size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} />)}
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; height: 100%;">
+                                    <div class="sample-code" style="font-size: 16pt; font-weight: bold;">${s.codigo}</div>
+                                    <div class="status ${s.status === 'Concluído' ? 'status-done' : s.status === 'Em Análise' ? 'status-progress' : 'status-pending'}">
+                                        ${s.status}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -429,8 +438,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, sample, allS
                         color: #1e293b;
                         line-height: 1.4;
                     }
-                    .sample-report {
+                    .sample-report, .technical-report {
                         padding: 10mm 0;
+                        position: relative;
                     }
                     .page-break {
                         page-break-before: always;
