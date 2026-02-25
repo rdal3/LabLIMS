@@ -1,12 +1,11 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BarChart3, TestTubes, Users, LogOut, Key, QrCode, Menu, Shield, Layers } from 'lucide-react';
+import { BarChart3, TestTubes, LogOut, Key, QrCode, Menu, Shield, Layers } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { API_BASE_URL } from './services/api';
 import { useIsMobile } from './hooks/useIsMobile';
 import Dashboard from './pages/Dashboard';
 import AmostrasPage from './pages/AmostrasPage';
 import LoginPage from './pages/LoginPage';
-import UsersPage from './pages/UsersPage';
 import QRScannerPage from './pages/QRScannerPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import WorksheetPage from './pages/WorksheetPage';
@@ -159,38 +158,42 @@ function Navigation() {
   const isActive = (path: string) => location.pathname === path;
 
   // Componente de Link para navegação
-  const NavLink = ({ to, icon: Icon, label, showLabel = true }: { to: string; icon: any; label: string; showLabel?: boolean }) => (
-    <Link
-      to={to}
-      onClick={() => setShowMobileMenu(false)}
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${isActive(to)
-        ? 'bg-blue-600 text-white'
-        : 'text-slate-600 hover:bg-slate-100'
-        } ${isMobile ? 'flex-col text-xs gap-1' : ''}`}
-    >
-      <Icon size={isMobile ? 24 : 20} />
-      {showLabel && <span className={isMobile ? 'text-[10px]' : ''}>{label}</span>}
-    </Link>
-  );
+  const NavLink = ({ to, icon: Icon, label, showLabel = true }: { to: string; icon: any; label: string; showLabel?: boolean }) => {
+    const active = isActive(to);
+    return (
+      <Link
+        to={to}
+        onClick={() => setShowMobileMenu(false)}
+        className={`group relative flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-bold transition-all duration-300 ease-out 
+        ${active
+            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+            : 'text-slate-500 hover:bg-blue-50/80 hover:text-blue-600'
+          } ${isMobile ? 'flex-col text-xs gap-1 min-w-[64px]' : 'hover:-translate-y-0.5'}`}
+      >
+        <Icon size={isMobile ? 24 : 20} className={`transition-transform duration-300 ${active && !isMobile ? 'scale-110' : 'group-hover:scale-110'}`} />
+        {showLabel && <span className={isMobile ? 'text-[10px] tracking-tight' : ''}>{label}</span>}
+      </Link>
+    );
+  };
 
   // Mobile: Bottom Tab Bar
   if (isMobile) {
     return (
       <>
         {/* Header simplificado para mobile */}
-        <header className="bg-white border-b border-slate-200 shadow-sm fixed top-0 left-0 right-0 z-40">
-          <div className="flex items-center justify-between px-4 h-14">
-            <img src={logoImg} alt="LabÁgua" className="h-10 w-auto" />
+        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/50 shadow-sm fixed top-0 left-0 right-0 z-40 transition-all">
+          <div className="flex items-center justify-between px-4 h-16">
+            <img src={logoImg} alt="LabÁgua" className="h-10 w-auto drop-shadow-sm" />
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-700 max-w-[120px] truncate">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-slate-700 max-w-[120px] truncate bg-slate-100/80 px-3 py-1.5 rounded-full">
                 {user?.full_name?.split(' ')[0]}
               </span>
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                className="p-2.5 text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-full shadow-sm transition-all active:scale-95 flex items-center justify-center"
               >
-                <Menu size={24} />
+                <Menu size={20} />
               </button>
             </div>
           </div>
@@ -234,20 +237,27 @@ function Navigation() {
         )}
 
         {/* Bottom Tab Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-40 safe-area-bottom">
-          <div className="flex justify-around items-center py-2 px-2">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200/60 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] z-40 safe-area-bottom pb-safe transition-all">
+          <div className="flex justify-around items-end pt-2 pb-1 px-2 h-[72px]">
             <NavLink to="/" icon={BarChart3} label="Início" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
 
-            <NavLink to="/scanner" icon={QrCode} label="QR Leitor" />
+            {/* Ação Principal: Leitor QR Code Elevado */}
+            <Link
+              to="/scanner"
+              onClick={() => setShowMobileMenu(false)}
+              className={`relative -top-3 flex flex-col items-center justify-center w-[58px] h-[58px] rounded-full shadow-lg transition-all duration-300 active:scale-95 ${isActive("/scanner")
+                ? "bg-blue-700 shadow-blue-500/50 text-white scale-105"
+                : "bg-blue-600 shadow-blue-500/30 text-white hover:bg-blue-700 hover:scale-105"
+                }`}
+            >
+              <QrCode size={26} className={isActive("/scanner") ? "" : "animate-[pulse_3s_ease-in-out_infinite]"} />
+            </Link>
 
             {hasRole('ADMIN', 'PROFESSOR', 'TÉCNICO') && (
               <NavLink to="/worksheet" icon={Layers} label="Lotes" />
             )}
 
-            {hasRole('ADMIN', 'PROFESSOR') && (
-              <NavLink to="/users" icon={Users} label="Usuários" />
-            )}
             {hasRole('ADMIN') && (
               <NavLink to="/admin" icon={Shield} label="Admin" />
             )}
@@ -255,7 +265,7 @@ function Navigation() {
         </nav>
 
         {/* Espaçadores para conteúdo não ficar sob header/nav */}
-        <div className="h-14" /> {/* Espaço para header */}
+        <div className="h-16" /> {/* Espaço para header */}
 
         <ChangePasswordModal show={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
       </>
@@ -264,14 +274,14 @@ function Navigation() {
 
   // Desktop: Navegação tradicional
   return (
-    <nav className="bg-white border-b border-slate-200 shadow-sm">
+    <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] transition-all">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <img src={logoImg} alt="LabÁgua" className="h-15 w-auto" />
+            <img src={logoImg} alt="LabÁgua" className="h-14 w-auto drop-shadow-sm hover:scale-105 transition-transform duration-300" />
           </div>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1.5 items-center">
             <NavLink to="/" icon={BarChart3} label="Dashboard" />
             <NavLink to="/amostras" icon={TestTubes} label="Amostras" />
             <NavLink to="/scanner" icon={QrCode} label="Escaneamento Rápido" />
@@ -280,32 +290,32 @@ function Navigation() {
               <NavLink to="/worksheet" icon={Layers} label="Mapas de Trabalho" />
             )}
 
-            {hasRole('ADMIN', 'PROFESSOR') && (
-              <NavLink to="/users" icon={Users} label="Usuários" />
-            )}
             {hasRole('ADMIN') && (
               <NavLink to="/admin" icon={Shield} label="Admin" />
             )}
 
-            <div className="ml-4 pl-4 border-l border-slate-200 flex items-center gap-3">
-              <div className="text-sm">
-                <div className="font-bold text-slate-900">{user?.full_name}</div>
-                <div className="text-slate-500 text-xs">{user?.role}</div>
+            <div className="ml-6 pl-6 border-l border-slate-200/80 flex items-center gap-4">
+              <div className="text-right">
+                <div className="font-bold text-slate-800 tracking-tight">{user?.full_name}</div>
+                <div className="text-blue-600 font-medium text-[11px] uppercase tracking-wider">{user?.role}</div>
               </div>
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                title="Alterar senha"
-              >
-                <Key size={20} />
-              </button>
-              <button
-                onClick={logout}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                title="Sair"
-              >
-                <LogOut size={20} />
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="p-2.5 text-slate-400 bg-slate-50 hover:bg-white border border-slate-100 hover:border-blue-200 hover:text-blue-600 rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+                  title="Alterar senha"
+                >
+                  <Key size={18} />
+                </button>
+                <button
+                  onClick={logout}
+                  className="p-2.5 text-slate-400 bg-slate-50 hover:bg-red-50 border border-slate-100 hover:border-red-200 hover:text-red-600 rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+                  title="Sair"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -361,7 +371,6 @@ function AppContent() {
         <Route path="/amostras" element={<ProtectedRoute><AmostrasPage /></ProtectedRoute>} />
         <Route path="/worksheet" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR', 'TÉCNICO']}><WorksheetPage /></ProtectedRoute>} />
         <Route path="/scanner" element={<ProtectedRoute><QRScannerPage /></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute requiredRoles={['ADMIN', 'PROFESSOR']}><UsersPage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requiredRoles={['ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
         <Route path="/login" element={<Navigate to="/" replace />} />
       </Routes>
